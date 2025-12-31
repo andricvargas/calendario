@@ -328,34 +328,26 @@ export function RadialChart({ progress, onDayClick, onHabitToggle, currentDate, 
     // Usar nombres de hábitos si están disponibles, sino usar números
     const displayNames = habitNames.length === 8 ? habitNames : Array.from({ length: numHabits }, (_, i) => `Hábito ${i + 1}`);
     
-    // Ángulo para posicionar las etiquetas justo a la izquierda del inicio (00:00)
-    const labelAngle = todayStartAngle + 0.15; // Ligeramente a la izquierda de las 00:00
+    // Ángulo donde empiezan los segmentos (inicio de los hábitos)
+    const labelAngle = todayStartAngle;
     
-    // Distancia fija a la izquierda del gráfico para las etiquetas (fuera del área de segmentos)
-    const labelX = 20; // Posición fija a la izquierda, fuera del gráfico
+    // Separación del 40% del radio máximo del gráfico
+    const separationPx = maxRadius * 0.40;
+    
+    // Calcular la posición X base donde empiezan los segmentos (en startRadius)
+    const segmentStartX = centerX + Math.cos(labelAngle) * startRadius;
+    
+    // Posición X de las etiquetas: 40% del radio hacia la izquierda desde donde empiezan los segmentos
+    const labelX = segmentStartX - separationPx;
     
     for (let i = 0; i < numHabits; i++) {
       // Calcular la posición Y basada en el radio del anillo del hábito
       const habitRadius = startRadius + (i * habitSpacing) + (habitSpacing / 2);
       
-      // Punto en el anillo donde se conecta la línea (en el borde izquierdo del gráfico)
-      const ringX = centerX + Math.cos(labelAngle) * habitRadius;
-      const ringY = centerY + Math.sin(labelAngle) * habitRadius;
+      // Posición Y de la etiqueta (alineada con el centro de su anillo)
+      const labelY = centerY + Math.sin(labelAngle) * habitRadius;
       
-      // Posición Y de la etiqueta (alineada con su anillo)
-      const labelY = ringY;
       const displayText = displayNames[i] || `Hábito ${i + 1}`;
-      
-      // Dibujar línea conectora desde el anillo hasta la etiqueta
-      habitLabelsGroup
-        .append('line')
-        .attr('x1', ringX)
-        .attr('y1', ringY)
-        .attr('x2', labelX + 60) // Conectar hasta el final del texto
-        .attr('y2', labelY)
-        .attr('stroke', '#999')
-        .attr('stroke-width', 1)
-        .style('pointer-events', 'none');
       
       // Crear un grupo para cada hábito (texto + fondo para edición)
       const habitGroup = habitLabelsGroup
