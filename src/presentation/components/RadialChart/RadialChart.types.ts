@@ -14,6 +14,7 @@ export interface HabitProgress {
 export interface RadialChartProps {
   progress: HabitProgress[];
   onDayClick?: (fecha: string) => void;
+  onHabitToggle?: (fecha: string, habitId: number) => Promise<void>;
   currentDate: Date;
   viewDate: Date; // Fecha del mes que se está visualizando
   habitNames?: string[]; // Nombres editables de los hábitos

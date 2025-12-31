@@ -86,8 +86,8 @@ export function getHabitColor(habitValue: number, isFuture: boolean): string {
   if (isFuture) {
     return '#ffffff'; // Blanco para futuro (no se debería mostrar)
   }
-  // Verde para completado, Rojo para incompleto (como en la imagen)
-  return habitValue === 1 ? '#4caf50' : '#f44336';
+  // Azul para completado, Rojo para incompleto
+  return habitValue === 1 ? '#2196f3' : '#f44336';
 }
 
 export function createArc(

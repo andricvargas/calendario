@@ -4,7 +4,7 @@ import { RadialChartProps, SegmentData } from './RadialChart.types';
 import { calculateSegments, getHabitColor, createArc } from './RadialChart.utils';
 import './RadialChart.css';
 
-export function RadialChart({ progress, onDayClick, currentDate, viewDate, habitNames = [], selectedDay }: RadialChartProps) {
+export function RadialChart({ progress, onDayClick, onHabitToggle, currentDate, viewDate, habitNames = [], selectedDay }: RadialChartProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -183,7 +183,7 @@ export function RadialChart({ progress, onDayClick, currentDate, viewDate, habit
           dayEndAngle
         );
         
-        dayGroup
+        const habitPath = dayGroup
           .append('path')
           .attr('d', cellPath)
           .attr('fill', color)
@@ -193,7 +193,42 @@ export function RadialChart({ progress, onDayClick, currentDate, viewDate, habit
           .attr('data-fecha', segment.fecha)
           .attr('data-habit', habitIndex + 1)
           .attr('data-day', segment.day)
-          .style('pointer-events', 'none'); // Los eventos se manejan en el hover-area
+          .style('cursor', 'pointer')
+          .style('pointer-events', 'all'); // Hacer el segmento clickeable
+        
+        // Agregar doble click para marcar/desmarcar el hábito
+        if (onHabitToggle && segment.isEditable) {
+          habitPath.on('dblclick', async function(event) {
+            event.stopPropagation(); // Evitar que se propague al click del día
+            const fecha = segment.fecha;
+            const habitId = habitIndex + 1;
+            const currentValue = habitValue;
+            const newValue = currentValue === 1 ? 0 : 1;
+            const newColor = getHabitColor(newValue, false);
+            
+            // Actualizar color inmediatamente (optimistic update)
+            d3.select(this).attr('fill', newColor);
+            
+            // Llamar a la función para actualizar en el servidor
+            try {
+              await onHabitToggle(fecha, habitId);
+            } catch (error) {
+              // Si hay error, revertir el color
+              d3.select(this).attr('fill', color);
+            }
+          });
+          
+          // Efecto hover para indicar que es clickeable
+          habitPath
+            .on('mouseenter', function() {
+              if (habitValue === 0) {
+                d3.select(this).attr('fill', '#e3f2fd'); // Azul claro al hover si no está completado
+              }
+            })
+            .on('mouseleave', function() {
+              d3.select(this).attr('fill', color); // Restaurar color original
+            });
+        }
       }
       
       // Crear la etiqueta del día inmediatamente después de renderizar el segmento
@@ -485,7 +520,7 @@ export function RadialChart({ progress, onDayClick, currentDate, viewDate, habit
     }*/
 
 
-  }, [progress, currentDate, viewDate, onDayClick, habitNames, selectedDay]);
+  }, [progress, currentDate, viewDate, onDayClick, onHabitToggle, habitNames, selectedDay]);
 
   return (
     <div ref={containerRef} className="radial-chart-container">

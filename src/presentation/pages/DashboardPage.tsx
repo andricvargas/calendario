@@ -53,6 +53,10 @@ export function DashboardPage() {
     await toggleHabit(fecha, habitId);
   };
 
+  const handleHabitToggleFromChart = async (fecha: string, habitId: number) => {
+    await toggleHabit(fecha, habitId);
+  };
+
   // Actualizar selectedDay cuando cambie el progreso
   useEffect(() => {
     if (selectedDay) {
@@ -211,6 +215,7 @@ export function DashboardPage() {
           <RadialChart
             progress={progress}
             onDayClick={handleDayClick}
+            onHabitToggle={handleHabitToggleFromChart}
             currentDate={currentDate}
             viewDate={viewDate}
             habitNames={habitNames}
