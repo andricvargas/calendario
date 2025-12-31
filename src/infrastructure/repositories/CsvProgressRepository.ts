@@ -12,6 +12,7 @@ export class CsvProgressRepository implements ProgressRepository {
   private csvAdapter: CsvAdapter;
   private dateService: DateService;
   private habitConfigService: HabitConfigService;
+  private saveLocks: Map<string, Promise<void>> = new Map();
 
   constructor(
     csvPath: string,
@@ -52,9 +53,47 @@ export class CsvProgressRepository implements ProgressRepository {
   }
 
   async saveDay(day: Day): Promise<void> {
-    const dateString = day.getDateString();
+    // Usar formatDate del dateService para asegurar consistencia con el formato del CSV
+    const dateString = this.dateService.formatDate(day.date);
+    const dayOfWeek = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][day.date.getDay()];
+    const dayNumber = day.date.getDate();
+    const monthName = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][day.date.getMonth()];
+    console.log(`[CsvProgressRepository] ========================================`);
     console.log(`[CsvProgressRepository] saveDay iniciado para fecha: ${dateString}`);
+    console.log(`[CsvProgressRepository] Día de registro: ${dayOfWeek}, ${dayNumber} de ${monthName} de ${day.date.getFullYear()}`);
+    console.log(`[CsvProgressRepository] Fecha del objeto Day.getDateString(): ${day.getDateString()}`);
+    console.log(`[CsvProgressRepository] Fecha usando formatDate: ${dateString}`);
     
+    // Implementar bloqueo por fecha para evitar condiciones de carrera
+    // Si ya hay un guardado en progreso para esta fecha, esperar a que termine
+    const existingLock = this.saveLocks.get(dateString);
+    if (existingLock) {
+      console.log(`[CsvProgressRepository] Esperando a que termine el guardado anterior para ${dateString}`);
+      await existingLock;
+    }
+    
+    // Crear una nueva promesa de bloqueo para esta fecha
+    const savePromise = this.performSave(day, dateString);
+    this.saveLocks.set(dateString, savePromise);
+    
+    try {
+      await savePromise;
+    } finally {
+      // Limpiar el bloqueo cuando termine
+      if (this.saveLocks.get(dateString) === savePromise) {
+        this.saveLocks.delete(dateString);
+      }
+    }
+  }
+
+  private async performSave(day: Day, dateString: string): Promise<void> {
+    // Obtener información del día para los logs
+    const dayOfWeek = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][day.date.getDay()];
+    const dayNumber = day.date.getDate();
+    const monthName = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][day.date.getMonth()];
+    
+    // IMPORTANTE: Cargar el estado más reciente del CSV justo antes de guardar
+    // para evitar condiciones de carrera cuando hay múltiples clics rápidos
     const allData = await this.getAllProgress();
     console.log(`[CsvProgressRepository] Datos existentes cargados: ${allData.length} días`);
     
@@ -62,46 +101,120 @@ export class CsvProgressRepository implements ProgressRepository {
     const habitCount = this.habitConfigService.getHabitCount();
     console.log(`[CsvProgressRepository] Número de hábitos: ${habitCount}, Día existe: ${existingIndex >= 0}`);
 
-    const dayData: ProgressData = {
-      fecha: dateString,
-    };
-
-    // Guardar todos los hábitos dinámicamente
-    const habitValues: number[] = [];
+    // Obtener los valores del objeto Day (que tiene el toggle aplicado)
+    const dayHabitValues: number[] = [];
+    console.log(`[CsvProgressRepository] Objeto Day tiene ${day.habits.length} hábitos`);
     for (let i = 1; i <= habitCount; i++) {
-      const habitKey = `habito_${i}`;
       try {
         const habit = day.getHabit(i);
         const value = habit.completed ? 1 : 0;
-        dayData[habitKey] = value;
-        habitValues.push(value);
+        dayHabitValues.push(value);
+        console.log(`[CsvProgressRepository] Hábito ${i} del objeto Day: ${value} (completed: ${habit.completed})`);
       } catch (error: any) {
-        // Si el hábito no existe, marcarlo como incompleto
-        console.log(`[CsvProgressRepository] Hábito ${i} no encontrado, marcando como 0`);
-        dayData[habitKey] = 0;
-        habitValues.push(0);
+        dayHabitValues.push(0);
       }
     }
-
-    console.log(`[CsvProgressRepository] Valores de hábitos: [${habitValues.join(', ')}]`);
+    console.log(`[CsvProgressRepository] Valores del objeto Day: [${dayHabitValues.join(', ')}]`);
 
     if (existingIndex >= 0) {
       console.log(`[CsvProgressRepository] Actualizando día existente en índice ${existingIndex}`);
-      allData[existingIndex] = dayData;
+      // IMPORTANTE: Cargar el estado actual del CSV para preservar cambios concurrentes
+      const existingDayData = allData[existingIndex];
+      const existingValues: number[] = [];
+      for (let i = 1; i <= habitCount; i++) {
+        const habitKey = `habito_${i}`;
+        existingValues.push(existingDayData[habitKey] || 0);
+      }
+      console.log(`[CsvProgressRepository] Valores existentes en CSV: [${existingValues.join(', ')}]`);
+      
+      // Hacer merge inteligente: combinar los valores del CSV con los del objeto Day
+      // El objeto Day tiene el toggle aplicado, pero el CSV puede tener otros cambios concurrentes
+      // Usar OR lógico para preservar todos los hábitos que están en 1 en cualquiera de los dos
+      // Esto asegura que cada clic se guarde correctamente sin perder cambios anteriores
+      const mergedDayData: ProgressData = {
+        fecha: dateString,
+      };
+      const mergedValues: number[] = [];
+      
+      for (let i = 1; i <= habitCount; i++) {
+        const habitKey = `habito_${i}`;
+        const existingValue = existingValues[i - 1] || 0;
+        const dayValue = dayHabitValues[i - 1] || 0;
+        // Si el hábito está en 1 en el CSV o en el objeto Day, mantenerlo en 1
+        // Esto preserva todos los cambios concurrentes de múltiples clics
+        const mergedValue = (existingValue === 1 || dayValue === 1) ? 1 : 0;
+        mergedDayData[habitKey] = mergedValue;
+        mergedValues.push(mergedValue);
+      }
+      
+      console.log(`[CsvProgressRepository] Valores después del merge (OR lógico): [${mergedValues.join(', ')}]`);
+      allData[existingIndex] = mergedDayData;
+      console.log(`[CsvProgressRepository] Día actualizado con merge de valores`);
+      console.log(`[CsvProgressRepository] Registro completado para: ${dayOfWeek}, ${dayNumber} de ${monthName} de ${day.date.getFullYear()}`);
     } else {
       console.log(`[CsvProgressRepository] Agregando nuevo día`);
+      const dayData: ProgressData = {
+        fecha: dateString,
+      };
+      for (let i = 1; i <= habitCount; i++) {
+        const habitKey = `habito_${i}`;
+        dayData[habitKey] = dayHabitValues[i - 1] || 0;
+      }
       allData.push(dayData);
+      console.log(`[CsvProgressRepository] Nuevo día agregado para: ${dayOfWeek}, ${dayNumber} de ${monthName} de ${day.date.getFullYear()}`);
     }
 
-    // Ordenar por fecha
-    allData.sort((a, b) => a.fecha.localeCompare(b.fecha));
+    // Ordenar por fecha (usando comparación de fechas ISO para orden correcto)
+    allData.sort((a, b) => {
+      // Comparar fechas como strings ISO (YYYY-MM-DD) que se ordenan correctamente
+      const dateA = a.fecha.trim();
+      const dateB = b.fecha.trim();
+      return dateA.localeCompare(dateB);
+    });
     console.log(`[CsvProgressRepository] Total de días después de guardar: ${allData.length}`);
+    console.log(`[CsvProgressRepository] Fechas ordenadas: ${allData.map(d => d.fecha).join(', ')}`);
+    
+    // Verificar que el orden es correcto
+    const dates = allData.map(d => d.fecha);
+    const sortedDates = [...dates].sort((a, b) => a.localeCompare(b));
+    const isSorted = JSON.stringify(dates) === JSON.stringify(sortedDates);
+    console.log(`[CsvProgressRepository] Orden correcto: ${isSorted}`);
+    if (!isSorted) {
+      console.warn(`[CsvProgressRepository] ADVERTENCIA: El orden no es correcto. Reordenando...`);
+      allData.sort((a, b) => a.fecha.trim().localeCompare(b.fecha.trim()));
+    }
 
     const csvContent = this.csvAdapter.stringify(allData, habitCount);
     console.log(`[CsvProgressRepository] CSV generado, longitud: ${csvContent.length} caracteres`);
+    console.log(`[CsvProgressRepository] Primeras líneas del CSV:\n${csvContent.split('\n').slice(0, 3).join('\n')}`);
     
-    await fs.writeFile(this.csvPath, csvContent, 'utf-8');
-    console.log(`[CsvProgressRepository] Archivo guardado exitosamente en: ${this.csvPath}`);
+    try {
+      await fs.writeFile(this.csvPath, csvContent, 'utf-8');
+      console.log(`[CsvProgressRepository] Archivo guardado exitosamente en: ${this.csvPath}`);
+      
+      // Verificar que el archivo se escribió correctamente
+      const verifyContent = await fs.readFile(this.csvPath, 'utf-8');
+      console.log(`[CsvProgressRepository] Verificación: archivo leído, longitud: ${verifyContent.length} caracteres`);
+      const verifyData = this.csvAdapter.parse(verifyContent, habitCount);
+      console.log(`[CsvProgressRepository] Verificación: ${verifyData.length} días en el archivo`);
+      const dayExists = verifyData.find((d) => d.fecha === dateString);
+      const dayOfWeek = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][day.date.getDay()];
+      const dayNumber = day.date.getDate();
+      const monthName = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][day.date.getMonth()];
+      console.log(`[CsvProgressRepository] Verificación: día ${dateString} existe en archivo: ${!!dayExists}`);
+      console.log(`[CsvProgressRepository] Día de registro: ${dayOfWeek}, ${dayNumber} de ${monthName} de ${day.date.getFullYear()}`);
+      if (dayExists) {
+        const savedHabits = [];
+        for (let i = 1; i <= habitCount; i++) {
+          savedHabits.push(dayExists[`habito_${i}`] || 0);
+        }
+        console.log(`[CsvProgressRepository] Verificación: valores guardados en CSV: [${savedHabits.join(', ')}]`);
+      }
+      console.log(`[CsvProgressRepository] ========================================`);
+    } catch (error: any) {
+      console.error(`[CsvProgressRepository] Error al escribir archivo:`, error);
+      throw error;
+    }
   }
 
   async getAllProgress(): Promise<ProgressData[]> {

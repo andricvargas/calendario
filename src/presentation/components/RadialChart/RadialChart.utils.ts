@@ -10,11 +10,16 @@ export function calculateSegments(
 ): SegmentData[] {
   const segments: SegmentData[] = [];
   
+  // Log para verificar viewDate recibido
+  console.log(`[calculateSegments] viewDate recibido - año: ${viewDate.getFullYear()}, mes: ${viewDate.getMonth() + 1}, día: ${viewDate.getDate()}`);
+  
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   today.setMinutes(0);
   today.setSeconds(0);
   today.setMilliseconds(0);
+  
+  console.log(`[calculateSegments] Fecha actual - año: ${today.getFullYear()}, mes: ${today.getMonth() + 1}, día: ${today.getDate()}`);
   
   // Verificar si el mes visualizado es futuro
   const viewMonthStart = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
@@ -41,12 +46,27 @@ export function calculateSegments(
 
   // Crear segmentos en orden cronológico
   for (let day = 1; day <= maxDay; day++) {
+    // Crear la fecha usando el año y mes de viewDate, y el día del bucle
     const date = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
     date.setHours(0, 0, 0, 0);
     date.setMinutes(0);
     date.setSeconds(0);
     date.setMilliseconds(0);
-    const fecha = date.toISOString().split('T')[0];
+    
+    // Verificar que la fecha creada corresponde al día correcto
+    // Si el mes tiene menos días, JavaScript puede ajustar la fecha
+    if (date.getDate() !== day || date.getMonth() !== viewDate.getMonth() || date.getFullYear() !== viewDate.getFullYear()) {
+      console.warn(`[calculateSegments] ADVERTENCIA: Fecha incorrecta - día esperado: ${day}, fecha creada: ${date.toISOString()}, viewDate: ${viewDate.getFullYear()}-${viewDate.getMonth() + 1}`);
+    }
+    
+    // Usar formato local en lugar de ISO para evitar problemas de zona horaria
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(date.getDate()).padStart(2, '0');
+    const fecha = `${year}-${month}-${dayStr}`;
+    
+    // Log para verificar que la fecha corresponde al día correcto
+    console.log(`[calculateSegments] Día del mes: ${day}, fecha generada: ${fecha}, viewDate: ${viewDate.getFullYear()}-${viewDate.getMonth() + 1}`);
     const dayData = progress.find((p) => p.fecha === fecha);
 
     const isToday = date.getTime() === today.getTime();

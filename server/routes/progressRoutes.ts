@@ -76,15 +76,25 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
 router.post('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { fecha, habitId } = req.body;
-    console.log(`[POST /api/progress] Inicio - fecha: ${fecha}, habitId: ${habitId}`);
-
+    
     if (!fecha || habitId === undefined) {
       console.log(`[POST /api/progress] Error: fecha o habitId faltante`);
       return res.status(400).json({ error: 'fecha y habitId son requeridos' });
     }
 
-    const currentDate = dateService.getCurrentDate();
+    console.log(`[POST /api/progress] ========================================`);
+    console.log(`[POST /api/progress] Inicio - fecha recibida del frontend: "${fecha}", habitId: ${habitId}`);
+    
     const targetDate = dateService.parseDate(fecha);
+    console.log(`[POST /api/progress] Fecha parseada - año: ${targetDate.getFullYear()}, mes: ${targetDate.getMonth() + 1}, día: ${targetDate.getDate()}`);
+    
+    const dayOfWeek = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][targetDate.getDay()];
+    const dayNumber = targetDate.getDate();
+    const monthName = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][targetDate.getMonth()];
+    
+    console.log(`[POST /api/progress] Día de registro: ${dayOfWeek}, ${dayNumber} de ${monthName} de ${targetDate.getFullYear()}`);
+
+    const currentDate = dateService.getCurrentDate();
     targetDate.setHours(0, 0, 0, 0);
     currentDate.setHours(0, 0, 0, 0);
 
@@ -105,28 +115,62 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
     console.log(`[POST /api/progress] Días cargados: ${days.length}`);
     
     let day = days.find((d) => d.getDateString() === fecha);
+    console.log(`[POST /api/progress] Búsqueda de día - fecha buscada: "${fecha}", días disponibles: ${days.map(d => d.getDateString()).join(', ')}`);
 
     // Si el día no existe, crearlo con todos los hábitos en 0
+    // IMPORTANTE: Todos los hábitos se inicializan en false (0), y luego se actualizará solo el que se está modificando
     if (!day) {
       console.log(`[POST /api/progress] Día no encontrado, creando nuevo día: ${fecha}`);
-      const habitCount = habitConfigService.getHabitCount();
-      console.log(`[POST /api/progress] Número de hábitos: ${habitCount}`);
-      const habits: any[] = [];
-      for (let i = 1; i <= habitCount; i++) {
-        const { Habit } = await import('../../src/domain/entities/Habit.js');
-        habits.push(new Habit(i, false));
+      try {
+        const habitCount = habitConfigService.getHabitCount();
+        console.log(`[POST /api/progress] Número de hábitos: ${habitCount}`);
+        
+        if (habitCount < 1) {
+          throw new Error(`Número de hábitos inválido: ${habitCount}`);
+        }
+        
+        // Crear todos los hábitos con valor false (0) inicialmente
+        // Esto es correcto porque es un día nuevo que no existe en el CSV
+        const habits: any[] = [];
+        for (let i = 1; i <= habitCount; i++) {
+          const { Habit } = await import('../../src/domain/entities/Habit.js');
+          habits.push(new Habit(i, false));
+        }
+        
+        console.log(`[POST /api/progress] ${habits.length} hábitos creados (todos en false inicialmente para día nuevo)`);
+        
+        const { Day } = await import('../../src/domain/entities/Day.js');
+        const isToday = dateService.isToday(targetDate);
+        
+        console.log(`[POST /api/progress] Creando Day con fecha: ${targetDate.toISOString()}, isToday: ${isToday}`);
+        day = new Day(targetDate, habits, isToday);
+        
+        const createdDateString = day.getDateString();
+        console.log(`[POST /api/progress] Día creado exitosamente con ${habits.length} hábitos, fecha del día: "${createdDateString}"`);
+        console.log(`[POST /api/progress] Comparación de fechas - original: "${fecha}", creada: "${createdDateString}", coinciden: ${fecha === createdDateString}`);
+      } catch (createError: any) {
+        console.error(`[POST /api/progress] Error al crear día:`, createError);
+        console.error(`[POST /api/progress] Stack trace:`, createError.stack);
+        throw new Error(`Error al crear día: ${createError.message}`);
       }
-      const { Day } = await import('../../src/domain/entities/Day.js');
-      const isToday = dateService.isToday(targetDate);
-      day = new Day(targetDate, habits, isToday);
-      console.log(`[POST /api/progress] Día creado exitosamente con ${habits.length} hábitos`);
     } else {
       console.log(`[POST /api/progress] Día encontrado: ${day.getDateString()}, hábitos: ${day.habits.length}`);
+      // Log del estado actual de todos los hábitos ANTES del toggle
+      const habitStatesBefore = day.habits.map(h => `${h.id}:${h.completed ? 1 : 0}`).join(', ');
+      console.log(`[POST /api/progress] Estado ANTES del toggle de hábitos: [${habitStatesBefore}]`);
     }
 
     console.log(`[POST /api/progress] Ejecutando marcarHabitoUseCase para hábito ${habitId}`);
-    await marcarHabitoUseCase.execute(day, habitId);
-    console.log(`[POST /api/progress] Hábito ${habitId} actualizado exitosamente. Completado: ${day.getHabit(habitId).completed}`);
+    try {
+      await marcarHabitoUseCase.execute(day, habitId);
+      console.log(`[POST /api/progress] Hábito ${habitId} actualizado exitosamente. Completado: ${day.getHabit(habitId).completed}`);
+      console.log(`[POST /api/progress] Registro completado para: ${dayOfWeek}, ${dayNumber} de ${monthName} de ${targetDate.getFullYear()}`);
+      console.log(`[POST /api/progress] ========================================`);
+    } catch (executeError: any) {
+      console.error(`[POST /api/progress] Error al ejecutar marcarHabitoUseCase:`, executeError);
+      console.error(`[POST /api/progress] Stack trace:`, executeError.stack);
+      throw executeError;
+    }
 
     res.json({
       success: true,
@@ -135,8 +179,10 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
       completed: day.getHabit(habitId).completed,
     });
   } catch (error: any) {
-    console.error(`[POST /api/progress] Error:`, error);
-    res.status(500).json({ error: error.message });
+    console.error(`[POST /api/progress] Error general:`, error);
+    console.error(`[POST /api/progress] Stack trace:`, error.stack);
+    const errorMessage = error.message || 'Error desconocido';
+    res.status(500).json({ error: errorMessage, details: error.stack });
   }
 });
 

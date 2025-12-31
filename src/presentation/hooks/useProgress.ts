@@ -41,6 +41,20 @@ export function useProgress() {
 
   const toggleHabit = useCallback(async (fecha: string, habitId: number) => {
     try {
+      // Verificar autenticación antes de hacer la petición
+      const authCheck = await fetch('/api/auth/status', {
+        credentials: 'include',
+      });
+      
+      if (!authCheck.ok) {
+        throw new Error('No autenticado. Por favor, inicia sesión nuevamente.');
+      }
+      
+      const authData = await authCheck.json();
+      if (!authData.authenticated) {
+        throw new Error('No autenticado. Por favor, inicia sesión nuevamente.');
+      }
+
       const response = await fetch('/api/progress', {
         method: 'POST',
         headers: {
@@ -51,13 +65,63 @@ export function useProgress() {
       });
 
       if (!response.ok) {
-        throw new Error('Error al guardar el hábito');
+        if (response.status === 401) {
+          throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.');
+        }
+        const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+        throw new Error(errorData.error || 'Error al guardar el hábito');
       }
 
       const data = await response.json();
       
-      // Recargar el progreso del mes actual
-      await loadProgress(currentYear, currentMonth);
+      // Actualizar el estado local inmediatamente con los datos del servidor
+      // IMPORTANTE: Preservar todos los hábitos existentes, solo actualizar el que se modificó
+      setProgress((prevProgress) => {
+        const updatedProgress = [...prevProgress];
+        const dayIndex = updatedProgress.findIndex((p) => p.fecha === fecha);
+        
+        if (dayIndex >= 0) {
+          // Actualizar el día existente, preservando TODOS los hábitos existentes
+          const existingDay = updatedProgress[dayIndex];
+          // Crear una copia completa del día con todos sus hábitos
+          const updatedDay: HabitProgress = { ...existingDay };
+          // Solo actualizar el hábito que se modificó
+          updatedDay[`habito_${habitId}`] = data.completed ? 1 : 0;
+          updatedProgress[dayIndex] = updatedDay;
+          
+          console.log(`[useProgress] Día actualizado - hábito ${habitId}: ${data.completed ? 1 : 0}`);
+        } else {
+          // Crear nuevo día si no existe
+          // Obtener el número de hábitos del primer día existente o usar un valor por defecto
+          const firstDay = updatedProgress[0];
+          let habitCount = 5; // Valor por defecto
+          if (firstDay) {
+            const habitKeys = Object.keys(firstDay).filter(k => k.startsWith('habito_'));
+            habitCount = habitKeys.length;
+          }
+          
+          const newDay: HabitProgress = {
+            fecha,
+          } as HabitProgress;
+          
+          // Inicializar todos los hábitos con valor 0, excepto el que se acaba de modificar
+          for (let i = 1; i <= habitCount; i++) {
+            newDay[`habito_${i}`] = i === habitId ? (data.completed ? 1 : 0) : 0;
+          }
+          
+          updatedProgress.push(newDay);
+          // Ordenar por fecha
+          updatedProgress.sort((a, b) => a.fecha.localeCompare(b.fecha));
+          
+          console.log(`[useProgress] Nuevo día creado - hábito ${habitId}: ${data.completed ? 1 : 0}`);
+        }
+        
+        return updatedProgress;
+      });
+      
+      // No recargar inmediatamente - la actualización optimista ya está aplicada
+      // El servidor ya procesó el cambio, así que los datos están sincronizados
+      // Solo recargar si hay un error o si el usuario navega a otro mes
       
       return data;
     } catch (err: any) {

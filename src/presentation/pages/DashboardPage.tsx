@@ -8,17 +8,20 @@ import './DashboardPage.css';
 
 export function DashboardPage() {
   const currentDate = useMemo(() => new Date(), []);
-  // Asegurar que viewDate nunca sea futuro
+  // Asegurar que viewDate nunca sea futuro y siempre sea el mes actual
   const initialViewDate = useMemo(() => {
     const today = new Date();
-    const view = new Date();
-    // Si por alguna razón viewDate es futuro, usar el mes actual
-    if (view > today) {
-      return today;
-    }
-    return view;
+    // Normalizar a medianoche para evitar problemas de comparación
+    today.setHours(0, 0, 0, 0);
+    console.log(`[DashboardPage] Inicializando viewDate - hoy: ${today.toISOString()}, año: ${today.getFullYear()}, mes: ${today.getMonth() + 1}, día: ${today.getDate()}`);
+    return today;
   }, []);
   const [viewDate, setViewDate] = useState(initialViewDate);
+  
+  // Log cuando viewDate cambie
+  useEffect(() => {
+    console.log(`[DashboardPage] viewDate actualizado - año: ${viewDate.getFullYear()}, mes: ${viewDate.getMonth() + 1}, día: ${viewDate.getDate()}`);
+  }, [viewDate]);
   const { progress, isLoading, toggleHabit, loadProgress } = useProgress();
   const { logout } = useAuth();
   const { habitCount, addHabit, removeHabit, canAdd, canRemove, isLoading: isLoadingHabitCount } = useHabitCount();
