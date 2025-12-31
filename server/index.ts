@@ -48,6 +48,11 @@ import progressRoutes from './routes/progressRoutes.js';
 app.use('/api/auth', authRoutes);
 app.use('/api/progress', progressRoutes);
 
+// Ruta de prueba para verificar que el servidor está funcionando
+app.get('/api/test', (req, res) => {
+  res.json({ message: 'Server is running', timestamp: new Date().toISOString() });
+});
+
 // Servir archivos estáticos en producción
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../dist')));

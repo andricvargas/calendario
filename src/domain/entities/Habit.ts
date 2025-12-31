@@ -3,8 +3,8 @@ export class Habit {
     public readonly id: number,
     public completed: boolean
   ) {
-    if (id < 1 || id > 8) {
-      throw new Error('El ID del hábito debe estar entre 1 y 8');
+    if (id < 1) {
+      throw new Error('El ID del hábito debe ser mayor a 0');
     }
   }
 

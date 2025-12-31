@@ -5,12 +5,16 @@ export function calculateSegments(
   progress: HabitProgress[],
   currentDate: Date,
   daysInMonth: number,
-  viewDate: Date // Fecha del mes que se está visualizando
+  viewDate: Date, // Fecha del mes que se está visualizando
+  habitCount: number = 8 // Número de hábitos
 ): SegmentData[] {
   const segments: SegmentData[] = [];
   
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  today.setMinutes(0);
+  today.setSeconds(0);
+  today.setMilliseconds(0);
   
   // Verificar si el mes visualizado es futuro
   const viewMonthStart = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
@@ -39,24 +43,25 @@ export function calculateSegments(
   for (let day = 1; day <= maxDay; day++) {
     const date = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
     date.setHours(0, 0, 0, 0);
+    date.setMinutes(0);
+    date.setSeconds(0);
+    date.setMilliseconds(0);
     const fecha = date.toISOString().split('T')[0];
     const dayData = progress.find((p) => p.fecha === fecha);
 
     const isToday = date.getTime() === today.getTime();
-    const canEdit = date <= today;
+    // Permitir editar el día actual y días pasados (usar comparación de timestamps)
+    const dateTimestamp = date.getTime();
+    const todayTimestamp = today.getTime();
+    const canEdit = dateTimestamp <= todayTimestamp;
 
-    const habits = dayData
-      ? [
-          dayData.habito_1,
-          dayData.habito_2,
-          dayData.habito_3,
-          dayData.habito_4,
-          dayData.habito_5,
-          dayData.habito_6,
-          dayData.habito_7,
-          dayData.habito_8,
-        ]
-      : [0, 0, 0, 0, 0, 0, 0, 0];
+    // Crear array de hábitos dinámicamente
+    const habits: number[] = [];
+    for (let i = 1; i <= habitCount; i++) {
+      const habitKey = `habito_${i}` as keyof HabitProgress;
+      const value = dayData?.[habitKey];
+      habits.push(value === 1 || value === '1' ? 1 : 0);
+    }
 
     // Calcular ángulos: el día 1 comienza en -π/2 (arriba) y va en sentido horario
     // Cada día tiene un ángulo central específico para su línea radial

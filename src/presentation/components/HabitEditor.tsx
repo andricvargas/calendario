@@ -67,16 +67,11 @@ export function HabitEditor({ day, onToggleHabit, isLoading = false }: HabitEdit
     return day[`habito_${habitId}` as keyof HabitProgress] as number;
   };
 
-  const completionCount = [
-    day.habito_1,
-    day.habito_2,
-    day.habito_3,
-    day.habito_4,
-    day.habito_5,
-    day.habito_6,
-    day.habito_7,
-    day.habito_8,
-  ].filter((h) => h === 1).length;
+  // Calcular el número de hábitos completados dinámicamente
+  const completionCount = habitNames.reduce((count, _, index) => {
+    const habitId = index + 1;
+    return count + (getHabitValue(habitId) === 1 ? 1 : 0);
+  }, 0);
 
   return (
     <div className="habit-editor">
@@ -90,7 +85,7 @@ export function HabitEditor({ day, onToggleHabit, isLoading = false }: HabitEdit
           })}
         </h3>
         <div className="completion-stats">
-          {completionCount} / 8 hábitos completados
+          {completionCount} / {habitNames.length} hábitos completados
         </div>
       </div>
 

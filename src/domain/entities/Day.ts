@@ -6,8 +6,8 @@ export class Day {
     public readonly habits: Habit[],
     private readonly isToday: boolean
   ) {
-    if (habits.length !== 8) {
-      throw new Error('Un día debe tener exactamente 8 hábitos');
+    if (habits.length === 0) {
+      throw new Error('Un día debe tener al menos un hábito');
     }
     this.validateDate(date);
   }
@@ -52,7 +52,7 @@ export class Day {
   }
 
   isFullyCompleted(): boolean {
-    return this.getCompletionCount() === 8;
+    return this.getCompletionCount() === this.habits.length;
   }
 
   getDateString(): string {

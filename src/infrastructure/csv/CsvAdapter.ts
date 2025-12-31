@@ -2,8 +2,8 @@ import Papa from 'papaparse';
 import { ProgressData } from '@domain/repositories/ProgressRepository';
 
 export class CsvAdapter {
-  parse(csvContent: string): ProgressData[] {
-    const result = Papa.parse<ProgressData>(csvContent, {
+  parse(csvContent: string, habitCount: number = 8): ProgressData[] {
+    const result = Papa.parse<Record<string, string>>(csvContent, {
       header: true,
       skipEmptyLines: true,
       transformHeader: (header) => header.trim(),
@@ -13,33 +13,35 @@ export class CsvAdapter {
       throw new Error(`Error al parsear CSV: ${result.errors[0].message}`);
     }
 
-    return result.data.map((row) => ({
-      fecha: row.fecha.trim(),
-      habito_1: parseInt(row.habito_1?.toString() || '0', 10),
-      habito_2: parseInt(row.habito_2?.toString() || '0', 10),
-      habito_3: parseInt(row.habito_3?.toString() || '0', 10),
-      habito_4: parseInt(row.habito_4?.toString() || '0', 10),
-      habito_5: parseInt(row.habito_5?.toString() || '0', 10),
-      habito_6: parseInt(row.habito_6?.toString() || '0', 10),
-      habito_7: parseInt(row.habito_7?.toString() || '0', 10),
-      habito_8: parseInt(row.habito_8?.toString() || '0', 10),
-    }));
+    return result.data.map((row) => {
+      const progressData: ProgressData = {
+        fecha: row.fecha?.trim() || '',
+      };
+
+      // Parsear todos los hábitos dinámicamente
+      for (let i = 1; i <= habitCount; i++) {
+        const habitKey = `habito_${i}`;
+        progressData[habitKey] = parseInt(row[habitKey]?.toString() || '0', 10);
+      }
+
+      return progressData;
+    });
   }
 
-  stringify(data: ProgressData[]): string {
+  stringify(data: ProgressData[], habitCount: number = 8): string {
+    if (data.length === 0) {
+      return 'fecha\n';
+    }
+
+    // Construir columnas dinámicamente
+    const columns = ['fecha'];
+    for (let i = 1; i <= habitCount; i++) {
+      columns.push(`habito_${i}`);
+    }
+
     const csv = Papa.unparse(data, {
       header: true,
-      columns: [
-        'fecha',
-        'habito_1',
-        'habito_2',
-        'habito_3',
-        'habito_4',
-        'habito_5',
-        'habito_6',
-        'habito_7',
-        'habito_8',
-      ],
+      columns,
     });
     return csv;
   }
