@@ -1,5 +1,4 @@
-import { Router, Response } from 'express';
-import { AuthenticatedRequest } from '../middleware/authMiddleware';
+import { Router, Request, Response } from 'express';
 import { CargarProgresoMensualUseCase } from '../../src/application/use-cases/CargarProgresoMensualUseCase';
 import { MarcarHabitoUseCase } from '../../src/application/use-cases/MarcarHabitoUseCase';
 import { CsvProgressRepository } from '../../src/infrastructure/repositories/CsvProgressRepository';

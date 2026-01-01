@@ -4,6 +4,7 @@ export class Day {
   constructor(
     public readonly date: Date,
     public readonly habits: Habit[],
+    // @ts-ignore - isToday reservado para uso futuro
     private readonly _isToday: boolean
   ) {
     if (habits.length === 0) {

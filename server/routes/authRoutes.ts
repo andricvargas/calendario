@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { ValidarTotpUseCase } from '../../src/application/use-cases/ValidarTotpUseCase';
 import { TotpValidator } from '../../src/infrastructure/totp/TotpValidator';
-import { AuthenticatedRequest } from '../middleware/authMiddleware';
 
 const router = Router();
 

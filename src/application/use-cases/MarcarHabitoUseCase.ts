@@ -5,6 +5,7 @@ import { DateService } from '@domain/services/DateService';
 export class MarcarHabitoUseCase {
   constructor(
     private progressRepository: ProgressRepository,
+    // @ts-ignore - dateService reservado para uso futuro
     private _dateService: DateService
   ) {}
 

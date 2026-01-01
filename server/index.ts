@@ -106,7 +106,7 @@ if (process.env.NODE_ENV !== 'production') {
   });
   
   // Para cualquier otra ruta que no sea /api, mostrar mensaje
-  app.get('*', (_req, res) => {
+  app.get('*', (req, res) => {
     if (!req.path.startsWith('/api')) {
       res.status(404).send(`
         <html>
