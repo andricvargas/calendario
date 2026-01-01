@@ -19,12 +19,21 @@ export function LoginForm() {
       return;
     }
 
-    const success = await login(token);
-    if (!success) {
-      setError('Código inválido. Por favor, inténtalo de nuevo.');
+    try {
+      const success = await login(token);
+      if (!success) {
+        setError('Código inválido. Por favor, inténtalo de nuevo.');
+        setToken('');
+      }
+      // Si es exitoso, el componente se redirigirá, pero aún así establecemos isLoading en false
+      // por si acaso hay algún problema con la redirección
+    } catch (error) {
+      console.error('[LoginForm] Error inesperado:', error);
+      setError('Error de conexión. Por favor, verifica tu conexión e inténtalo de nuevo.');
       setToken('');
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

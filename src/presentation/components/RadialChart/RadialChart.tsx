@@ -11,8 +11,9 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
   useEffect(() => {
     if (!svgRef.current || !containerRef.current) return;
 
-    const svg = d3.select(svgRef.current);
-    svg.selectAll('*').remove();
+    try {
+      const svg = d3.select(svgRef.current);
+      svg.selectAll('*').remove();
 
     const width = 800;
     const height = 800;
@@ -95,6 +96,12 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       todayDay = segments.length > 0 ? segments[segments.length - 1].day : daysInMonth;
     }
     
+    // Validar que todayDay sea válido
+    if (!todayDay || todayDay <= 0 || todayDay > 31) {
+      console.error(`[RadialChart] ERROR: todayDay inválido: ${todayDay}`);
+      return;
+    }
+    
     // Verificar que el día actual esté en los segmentos
     const todaySegment = segments.find(s => s.day === todayDay);
     
@@ -111,7 +118,18 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
     
     // Calcular el ángulo por día basado en el número real de días a mostrar
     // Distribuir el espacio disponible entre todos los días que se mostrarán
+    // IMPORTANTE: Validar que todayDay no sea 0 para evitar división por cero
+    if (todayDay <= 0) {
+      console.error(`[RadialChart] ERROR: todayDay debe ser mayor que 0, valor actual: ${todayDay}`);
+      return;
+    }
     const anglePerDay = totalAngle / todayDay; // Ángulo por día (ajustado al número de días)
+    
+    // Validar que anglePerDay sea un número válido
+    if (!isFinite(anglePerDay) || isNaN(anglePerDay)) {
+      console.error(`[RadialChart] ERROR: anglePerDay inválido: ${anglePerDay}, todayDay: ${todayDay}, totalAngle: ${totalAngle}`);
+      return;
+    }
     
     // Crear grupos para cada día (secciones radiales)
     const dayGroups = svg
@@ -147,15 +165,43 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       const daysBeforeToday = todayDay - dayNumber;
       
       // Calcular los ángulos de inicio y fin del segmento
-      // IMPORTANTE: Los segmentos deben alinearse con las etiquetas que usan SUMAR el offset
-      // Las etiquetas usan: dayCenterAngle = todayStartAngle + dayOffset + (anglePerDay / 2)
-      // Para que el centro del segmento coincida con la etiqueta:
-      // dayStartAngle = todayStartAngle + dayOffset
-      // dayEndAngle = todayStartAngle + dayOffset + anglePerDay
-      // Así el centro será: (dayStartAngle + dayEndAngle) / 2 = todayStartAngle + dayOffset + (anglePerDay / 2)
+      // IMPORTANTE: El día actual debe INICIAR en las 00:00 (todayStartAngle = -π/2)
+      // Para el día actual (daysBeforeToday = 0): comienza en todayStartAngle (-π/2, 00:00)
+      // Para días anteriores: se desplazan hacia la derecha sumando el offset
       const dayOffset = daysBeforeToday * anglePerDay;
-      const dayStartAngle = todayStartAngle + dayOffset;
-      const dayEndAngle = todayStartAngle + dayOffset + anglePerDay;
+      
+      let dayStartAngle: number;
+      let dayEndAngle: number;
+      
+      if (daysBeforeToday === 0) {
+        // Día actual: inicia en todayStartAngle (-π/2, 00:00)
+        dayStartAngle = todayStartAngle;
+        dayEndAngle = todayStartAngle + anglePerDay;
+      } else {
+        // Días anteriores: desplazados hacia la derecha
+        dayStartAngle = todayStartAngle + dayOffset;
+        dayEndAngle = todayStartAngle + dayOffset + anglePerDay;
+      }
+      
+      // Calcular el ángulo central del día (para las etiquetas)
+      // IMPORTANTE: El día actual debe INICIAR en las 00:00 (todayStartAngle)
+      // Para el día actual: la etiqueta debe estar al inicio del segmento (todayStartAngle)
+      // Para días anteriores: se desplazan hacia la derecha (centro del segmento)
+      
+      // Validar que los ángulos sean números válidos
+      if (!isFinite(dayStartAngle) || !isFinite(dayEndAngle) || isNaN(dayStartAngle) || isNaN(dayEndAngle)) {
+        console.error(`[RadialChart] ERROR: Ángulos inválidos para día ${dayNumber}: dayStartAngle=${dayStartAngle}, dayEndAngle=${dayEndAngle}`);
+        return; // Saltar este día si hay error
+      }
+      const dayCenterAngle = daysBeforeToday === 0 
+        ? todayStartAngle  // Día actual: inicia en las 00:00
+        : todayStartAngle + dayOffset + (anglePerDay / 2);  // Días anteriores: desplazados (centro)
+      
+      // Validar que dayCenterAngle sea válido
+      if (!isFinite(dayCenterAngle) || isNaN(dayCenterAngle)) {
+        console.error(`[RadialChart] ERROR: dayCenterAngle inválido para día ${dayNumber}: ${dayCenterAngle}`);
+        return; // Saltar este día si hay error
+      }
       
       // Usar los ángulos directamente - D3 maneja correctamente los ángulos negativos
       // El problema es que cuando el día 1 tiene un ángulo de -351°, está casi en la misma posición que el día 31 (-90°)
@@ -165,18 +211,15 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       const finalEndAngle = dayEndAngle;
       
       // Log para verificar los ángulos calculados (solo para el día 31 y el día 1)
-      if (segment.day === 31 || segment.day === 1) {
+      if (segment.day === 31 || segment.day === 1 || daysBeforeToday === 0) {
         console.log(`[RadialChart] Ángulos calculados para día ${segment.day}:`);
+        console.log(`[RadialChart]   todayDay: ${todayDay}, segment.day: ${segment.day}`);
         console.log(`[RadialChart]   daysBeforeToday: ${daysBeforeToday}`);
-        console.log(`[RadialChart]   dayOffset: ${dayOffset}`);
+        console.log(`[RadialChart]   dayOffset: ${dayOffset} (${(dayOffset * 180 / Math.PI).toFixed(1)}°)`);
         console.log(`[RadialChart]   dayStartAngle: ${dayStartAngle} (${(dayStartAngle * 180 / Math.PI).toFixed(1)}°)`);
         console.log(`[RadialChart]   dayEndAngle: ${dayEndAngle} (${(dayEndAngle * 180 / Math.PI).toFixed(1)}°)`);
+        console.log(`[RadialChart]   dayCenterAngle: ${dayCenterAngle} (${(dayCenterAngle * 180 / Math.PI).toFixed(1)}°)`);
       }
-      
-      // Calcular el ángulo central del día (para las etiquetas)
-      // IMPORTANTE: Las etiquetas mantienen su posición original (desde las 00:00)
-      // Las etiquetas usan SUMAR el offset para mantener su posición correcta
-      const dayCenterAngle = todayStartAngle + dayOffset + (anglePerDay / 2);
       
       // Almacenar los ángulos para este segmento
       segmentAngles.set(segment.fecha, { startAngle: dayStartAngle, endAngle: dayEndAngle, centerAngle: dayCenterAngle });
@@ -304,19 +347,10 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       }
       
       // Crear la etiqueta del día asociada al mismo segmento
-      // ESTRATEGIA: Usar el arco de D3 para calcular el centroide real del segmento
-      // Esto asegura que la etiqueta esté perfectamente alineada con el centro visual del segmento
-      const arcGenerator = d3.arc()
-        .innerRadius(startRadius)
-        .outerRadius(maxRadius)
-        .startAngle(finalStartAngle)
-        .endAngle(finalEndAngle);
-      
-      // Calcular el centroide del segmento (coordenadas relativas al centro)
-      const [centroidX, centroidY] = arcGenerator.centroid();
-      
-      // Calcular el ángulo del centroide para posicionar la etiqueta
-      const centroidAngle = Math.atan2(centroidY, centroidX);
+      // IMPORTANTE: Usar el mismo dayCenterAngle calculado para asegurar alineación perfecta
+      // El dayCenterAngle ya está calculado correctamente para el día actual (centrado en 00:00)
+      // y para los días anteriores (desplazados hacia la derecha)
+      const centroidAngle = dayCenterAngle;
       
       // Calcular la posición base de la etiqueta (coordenadas absolutas en el SVG)
       // Usar el mismo radio que el segmento más un offset para estar fuera
@@ -568,7 +602,16 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       }
     }*/
 
-
+    } catch (error) {
+      console.error('[RadialChart] Error al renderizar el gráfico:', error);
+      svg.append('text')
+        .attr('x', centerX)
+        .attr('y', centerY)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', '16px')
+        .attr('fill', '#f44336')
+        .text('Error al renderizar el gráfico');
+    }
   }, [progress, currentDate, viewDate, onHabitToggle, habitNames, habitCount]);
 
   return (

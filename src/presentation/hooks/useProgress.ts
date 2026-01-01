@@ -21,9 +21,16 @@ export function useProgress() {
       if (year !== undefined) params.append('year', year.toString());
       if (month !== undefined) params.append('month', month.toString());
 
+      // Crear un AbortController para timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos timeout
+
       const response = await fetch(`/api/progress?${params.toString()}`, {
         credentials: 'include',
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error('Error al cargar el progreso');
@@ -32,7 +39,11 @@ export function useProgress() {
       const data = await response.json();
       setProgress(data.progress || []);
     } catch (err: any) {
-      setError(err.message || 'Error desconocido');
+      if (err.name === 'AbortError') {
+        setError('Timeout al cargar el progreso. Verifica tu conexión.');
+      } else {
+        setError(err.message || 'Error desconocido');
+      }
       setProgress([]);
     } finally {
       setIsLoading(false);
@@ -42,9 +53,15 @@ export function useProgress() {
   const toggleHabit = useCallback(async (fecha: string, habitId: number) => {
     try {
       // Verificar autenticación antes de hacer la petición
+      const authController = new AbortController();
+      const authTimeoutId = setTimeout(() => authController.abort(), 5000); // 5 segundos timeout
+      
       const authCheck = await fetch('/api/auth/status', {
         credentials: 'include',
+        signal: authController.signal,
       });
+      
+      clearTimeout(authTimeoutId);
       
       if (!authCheck.ok) {
         throw new Error('No autenticado. Por favor, inicia sesión nuevamente.');
@@ -55,6 +72,10 @@ export function useProgress() {
         throw new Error('No autenticado. Por favor, inicia sesión nuevamente.');
       }
 
+      // Crear un AbortController para timeout en la petición principal
+      const progressController = new AbortController();
+      const progressTimeoutId = setTimeout(() => progressController.abort(), 10000); // 10 segundos timeout
+
       const response = await fetch('/api/progress', {
         method: 'POST',
         headers: {
@@ -62,7 +83,10 @@ export function useProgress() {
         },
         credentials: 'include',
         body: JSON.stringify({ fecha, habitId }),
+        signal: progressController.signal,
       });
+
+      clearTimeout(progressTimeoutId);
 
       if (!response.ok) {
         if (response.status === 401) {
