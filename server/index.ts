@@ -132,17 +132,33 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-// Servir archivos estáticos en producción
+// Servir archivos estáticos en producción (después de las rutas API)
 if (process.env.NODE_ENV === 'production') {
+  // Servir archivos estáticos del frontend
   app.use(express.static(path.join(__dirname, '../dist')));
-  app.get('*', (_req, res) => {
+  
+  // Para cualquier ruta que no sea /api, servir index.html (SPA routing)
+  app.get('*', (req, res, next) => {
+    // Si es una ruta de API, pasar al siguiente middleware
+    if (req.path.startsWith('/api')) {
+      return next();
+    }
+    // Si es un archivo estático (tiene extensión), intentar servirlo
+    if (req.path.includes('.')) {
+      return next();
+    }
+    // Para cualquier otra ruta, servir index.html
     res.sendFile(path.join(__dirname, '../dist/index.html'));
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
-  console.log(`✅ API routes available at http://localhost:${PORT}/api/*`);
-  console.log(`✅ Frontend should be accessed at http://localhost:3000`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Server running on http://0.0.0.0:${PORT}`);
+  console.log(`✅ API routes available at http://0.0.0.0:${PORT}/api/*`);
+  if (process.env.NODE_ENV === 'production') {
+    console.log(`✅ Frontend available at http://0.0.0.0:${PORT}`);
+  } else {
+    console.log(`✅ Frontend should be accessed at http://localhost:3000`);
+  }
 });
 
