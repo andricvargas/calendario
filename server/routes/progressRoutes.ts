@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
-import { CargarProgresoMensualUseCase } from '../../src/application/use-cases/CargarProgresoMensualUseCase';
-import { MarcarHabitoUseCase } from '../../src/application/use-cases/MarcarHabitoUseCase';
-import { CsvProgressRepository } from '../../src/infrastructure/repositories/CsvProgressRepository';
-import { CsvAdapter } from '../../src/infrastructure/csv/CsvAdapter';
-import { SystemDateAdapter } from '../../src/infrastructure/time/SystemDateAdapter';
-import { FileHabitConfigService } from '../../src/infrastructure/habitConfig/FileHabitConfigService';
+import { CargarProgresoMensualUseCase } from '../../src/application/use-cases/CargarProgresoMensualUseCase.js';
+import { MarcarHabitoUseCase } from '../../src/application/use-cases/MarcarHabitoUseCase.js';
+import { CsvProgressRepository } from '../../src/infrastructure/repositories/CsvProgressRepository.js';
+import { CsvAdapter } from '../../src/infrastructure/csv/CsvAdapter.js';
+import { SystemDateAdapter } from '../../src/infrastructure/time/SystemDateAdapter.js';
+import { FileHabitConfigService } from '../../src/infrastructure/habitConfig/FileHabitConfigService.js';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 
