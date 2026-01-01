@@ -10,7 +10,7 @@ module.exports = {
       cwd: __dirname,
       env: {
         NODE_ENV: 'production',
-        PORT: 3001,
+        PORT: 3000,
       },
       // Configuración de logs
       error_file: path.join(__dirname, 'logs/pm2-error.log'),
