@@ -31,18 +31,28 @@ app.use(
 // CORS - Configuración para desarrollo y producción
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  const allowedOrigins = process.env.CORS_ORIGIN 
-    ? process.env.CORS_ORIGIN.split(',')
-    : (process.env.NODE_ENV === 'production' 
-        ? [] // En producción sin CORS_ORIGIN, no permitir CORS (mismo dominio)
-        : ['http://localhost:3000']); // En desarrollo, permitir localhost
+  const isDevelopment = process.env.NODE_ENV !== 'production';
   
-  // Si hay origen permitido o estamos en desarrollo
-  if (allowedOrigins.length > 0 && origin && allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  // En desarrollo, permitir cualquier origen de localhost
+  if (isDevelopment) {
+    if (origin && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+      res.header('Access-Control-Allow-Origin', origin);
+      res.header('Access-Control-Allow-Credentials', 'true');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    }
+  } else {
+    // En producción, usar CORS_ORIGIN si está configurado
+    const allowedOrigins = process.env.CORS_ORIGIN 
+      ? process.env.CORS_ORIGIN.split(',')
+      : [];
+    
+    if (allowedOrigins.length > 0 && origin && allowedOrigins.includes(origin)) {
+      res.header('Access-Control-Allow-Origin', origin);
+      res.header('Access-Control-Allow-Credentials', 'true');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    }
   }
   
   if (req.method === 'OPTIONS') {

@@ -14,6 +14,7 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    strictPort: false, // Permitir usar otro puerto si 3000 está ocupado
     proxy: {
       '/api': {
         target: 'http://localhost:3001',

@@ -67,8 +67,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       // Crear un AbortController para timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos timeout
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos timeout
 
+      console.log('[AuthContext] Intentando conectar a /api/auth/validate-totp');
       const response = await fetch('/api/auth/validate-totp', {
         method: 'POST',
         headers: {
