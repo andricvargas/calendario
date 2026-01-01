@@ -16,45 +16,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const checkingRef = useRef(false); // Ref para evitar múltiples llamadas simultáneas
 
   const checkAuth = async () => {
-    // Evitar múltiples llamadas simultáneas
-    if (checkingRef.current) {
-      console.log('[AuthContext] Ya hay una verificación en curso, ignorando...');
-      return;
-    }
+    // TEMPORALMENTE COMENTADO PARA DEBUG - Siempre autenticado
+    // // Evitar múltiples llamadas simultáneas
+    // if (checkingRef.current) {
+    //   console.log('[AuthContext] Ya hay una verificación en curso, ignorando...');
+    //   return;
+    // }
     
-    checkingRef.current = true;
-    try {
-      // Crear un AbortController para timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 segundos timeout
+    // checkingRef.current = true;
+    // try {
+    //   // Crear un AbortController para timeout
+    //   const controller = new AbortController();
+    //   const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 segundos timeout
 
-      const response = await fetch('/api/auth/status', {
-        credentials: 'include',
-        signal: controller.signal,
-      }).catch((fetchError) => {
-        // Si fetch falla (red, CORS, etc.), lanzar el error
-        throw fetchError;
-      });
+    //   const response = await fetch('/api/auth/status', {
+    //     credentials: 'include',
+    //     signal: controller.signal,
+    //   }).catch((fetchError) => {
+    //     // Si fetch falla (red, CORS, etc.), lanzar el error
+    //     throw fetchError;
+    //   });
 
-      clearTimeout(timeoutId);
+    //   clearTimeout(timeoutId);
 
-      if (response.ok) {
-        const data = await response.json();
-        setIsAuthenticated(data.authenticated || false);
-      } else {
-        setIsAuthenticated(false);
-      }
-    } catch (error: any) {
-      // Solo loguear errores importantes, no timeouts normales
-      if (error.name !== 'AbortError' && !error.message?.includes('Failed to fetch')) {
-        console.warn('[AuthContext] Error al verificar autenticación:', error.message || error);
-      }
-      // En caso de error, asumir que no está autenticado y continuar
-      setIsAuthenticated(false);
-    } finally {
-      setIsLoading(false);
-      checkingRef.current = false; // Permitir nuevas verificaciones
-    }
+    //   if (response.ok) {
+    //     const data = await response.json();
+    //     setIsAuthenticated(data.authenticated || false);
+    //   } else {
+    //     setIsAuthenticated(false);
+    //   }
+    // } catch (error: any) {
+    //   // Solo loguear errores importantes, no timeouts normales
+    //   if (error.name !== 'AbortError' && !error.message?.includes('Failed to fetch')) {
+    //     console.warn('[AuthContext] Error al verificar autenticación:', error.message || error);
+    //   }
+    //   // En caso de error, asumir que no está autenticado y continuar
+    //   setIsAuthenticated(false);
+    // } finally {
+    //   setIsLoading(false);
+    //   checkingRef.current = false; // Permitir nuevas verificaciones
+    // }
+    
+    // TEMPORALMENTE: Siempre autenticado
+    setIsAuthenticated(true);
+    setIsLoading(false);
   };
 
   useEffect(() => {

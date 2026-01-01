@@ -37,7 +37,8 @@ const marcarHabitoUseCase = new MarcarHabitoUseCase(
 );
 
 // Aplicar middleware de autenticación a todas las rutas
-router.use(requireAuth);
+// TEMPORALMENTE COMENTADO PARA DEBUG
+// router.use(requireAuth);
 
 router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {

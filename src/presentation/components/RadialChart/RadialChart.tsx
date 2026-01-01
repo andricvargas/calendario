@@ -21,13 +21,9 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
     const centerY = height / 2;
     const maxRadius = Math.min(width, height) / 2 - 50;
 
-    // Log para verificar viewDate
-    console.log(`[RadialChart] viewDate recibido - año: ${viewDate.getFullYear()}, mes: ${viewDate.getMonth() + 1}, día: ${viewDate.getDate()}`);
-    
     // Encontrar el día actual para posicionarlo en las 00:00 (arriba)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    console.log(`[RadialChart] Fecha actual - año: ${today.getFullYear()}, mes: ${today.getMonth() + 1}, día: ${today.getDate()}`);
 
     const daysInMonth = new Date(
       viewDate.getFullYear(),
@@ -41,18 +37,6 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
     // Esto asegura que el día actual quede "encima" visualmente y capture los eventos correctamente
     segments = [...segments].reverse();
 
-    // Log para verificar los segmentos generados
-    console.log(`[RadialChart] Segmentos generados: ${segments.length} días (orden invertido para renderizado)`);
-    if (segments.length > 0) {
-      console.log(`[RadialChart] Primer segmento (renderizado primero): día ${segments[0].day}, fecha ${segments[0].fecha}`);
-      console.log(`[RadialChart] Último segmento (renderizado último): día ${segments[segments.length - 1].day}, fecha ${segments[segments.length - 1].fecha}`);
-      const day31Segment = segments.find(s => s.day === 31);
-      if (day31Segment) {
-        console.log(`[RadialChart] Segmento día 31 encontrado: fecha ${day31Segment.fecha}, posición en array: ${segments.indexOf(day31Segment)}`);
-      } else {
-        console.warn(`[RadialChart] ADVERTENCIA: No se encontró segmento para el día 31`);
-      }
-    }
 
     // Si no hay segmentos (mes futuro), mostrar mensaje
     if (segments.length === 0) {
@@ -165,28 +149,28 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       const daysBeforeToday = todayDay - dayNumber;
       
       // Calcular los ángulos de inicio y fin del segmento
-      // IMPORTANTE: El día actual debe INICIAR en las 00:00 (todayStartAngle = -π/2)
-      // Para el día actual (daysBeforeToday = 0): comienza en todayStartAngle (-π/2, 00:00)
-      // Para días anteriores: se desplazan hacia la derecha sumando el offset
+      // IMPORTANTE: El día actual debe INICIAR en las 00:00 (todayStartAngle = -π/2, arriba)
+      // Para el día actual (daysBeforeToday = 0): inicia en todayStartAngle (-π/2, 00:00)
+      // Para días anteriores: se desplazan hacia la derecha (sentido horario) sumando el offset
       const dayOffset = daysBeforeToday * anglePerDay;
       
       let dayStartAngle: number;
       let dayEndAngle: number;
       
       if (daysBeforeToday === 0) {
-        // Día actual: inicia en todayStartAngle (-π/2, 00:00)
+        // Día actual: inicia en todayStartAngle (-π/2, 00:00, arriba)
         dayStartAngle = todayStartAngle;
         dayEndAngle = todayStartAngle + anglePerDay;
       } else {
-        // Días anteriores: desplazados hacia la derecha
+        // Días anteriores: desplazados hacia la derecha (sentido horario)
         dayStartAngle = todayStartAngle + dayOffset;
         dayEndAngle = todayStartAngle + dayOffset + anglePerDay;
       }
       
       // Calcular el ángulo central del día (para las etiquetas)
-      // IMPORTANTE: El día actual debe INICIAR en las 00:00 (todayStartAngle)
+      // IMPORTANTE: El día actual INICIA en las 00:00 (todayStartAngle)
       // Para el día actual: la etiqueta debe estar al inicio del segmento (todayStartAngle)
-      // Para días anteriores: se desplazan hacia la derecha (centro del segmento)
+      // Para días anteriores: en el centro del segmento
       
       // Validar que los ángulos sean números válidos
       if (!isFinite(dayStartAngle) || !isFinite(dayEndAngle) || isNaN(dayStartAngle) || isNaN(dayEndAngle)) {
@@ -195,7 +179,7 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       }
       const dayCenterAngle = daysBeforeToday === 0 
         ? todayStartAngle  // Día actual: inicia en las 00:00
-        : todayStartAngle + dayOffset + (anglePerDay / 2);  // Días anteriores: desplazados (centro)
+        : todayStartAngle + dayOffset + (anglePerDay / 2);  // Días anteriores: centro del segmento
       
       // Validar que dayCenterAngle sea válido
       if (!isFinite(dayCenterAngle) || isNaN(dayCenterAngle)) {
@@ -210,141 +194,23 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       const finalStartAngle = dayStartAngle;
       const finalEndAngle = dayEndAngle;
       
-      // Log para verificar los ángulos calculados (solo para el día 31 y el día 1)
+      // Log de posiciones (ángulos y coordenadas)
       if (segment.day === 31 || segment.day === 1 || daysBeforeToday === 0) {
-        console.log(`[RadialChart] Ángulos calculados para día ${segment.day}:`);
-        console.log(`[RadialChart]   todayDay: ${todayDay}, segment.day: ${segment.day}`);
-        console.log(`[RadialChart]   daysBeforeToday: ${daysBeforeToday}`);
-        console.log(`[RadialChart]   dayOffset: ${dayOffset} (${(dayOffset * 180 / Math.PI).toFixed(1)}°)`);
-        console.log(`[RadialChart]   dayStartAngle: ${dayStartAngle} (${(dayStartAngle * 180 / Math.PI).toFixed(1)}°)`);
-        console.log(`[RadialChart]   dayEndAngle: ${dayEndAngle} (${(dayEndAngle * 180 / Math.PI).toFixed(1)}°)`);
-        console.log(`[RadialChart]   dayCenterAngle: ${dayCenterAngle} (${(dayCenterAngle * 180 / Math.PI).toFixed(1)}°)`);
+        const labelRadius = maxRadius + 30;
+        const labelX = centerX + Math.cos(dayCenterAngle) * labelRadius;
+        const labelY = centerY + Math.sin(dayCenterAngle) * labelRadius;
+        console.log(`[RadialChart] Posiciones día ${segment.day}:`);
+        console.log(`[RadialChart]   Ángulo inicio: ${dayStartAngle.toFixed(4)} (${(dayStartAngle * 180 / Math.PI).toFixed(1)}°)`);
+        console.log(`[RadialChart]   Ángulo fin: ${dayEndAngle.toFixed(4)} (${(dayEndAngle * 180 / Math.PI).toFixed(1)}°)`);
+        console.log(`[RadialChart]   Ángulo centro: ${dayCenterAngle.toFixed(4)} (${(dayCenterAngle * 180 / Math.PI).toFixed(1)}°)`);
+        console.log(`[RadialChart]   Coordenadas etiqueta: (${labelX.toFixed(1)}, ${labelY.toFixed(1)})`);
+        console.log(`[RadialChart]   Radio interno: ${startRadius.toFixed(1)}, Radio externo: ${maxRadius.toFixed(1)}`);
       }
       
       // Almacenar los ángulos para este segmento
       segmentAngles.set(segment.fecha, { startAngle: dayStartAngle, endAngle: dayEndAngle, centerAngle: dayCenterAngle });
       
-      // Para cada hábito (anillo concéntrico)
-      for (let habitIndex = 0; habitIndex < numHabits; habitIndex++) {
-        const innerRadius = startRadius + (habitIndex * habitSpacing);
-        const outerRadius = startRadius + ((habitIndex + 1) * habitSpacing);
-        const habitValue = segment.habits[habitIndex];
-        const color = getHabitColor(habitValue, false);
-        
-        // Crear celda (arco) para este hábito y día
-        // Usar los ángulos directamente - D3 maneja correctamente los ángulos negativos
-        const cellPath = createArc(
-          innerRadius,
-          outerRadius,
-          finalStartAngle,
-          finalEndAngle
-        );
-        
-        const habitPath = dayGroup
-          .append('path')
-          .attr('d', cellPath)
-          .attr('fill', color)
-          .attr('stroke', '#ffffff')
-          .attr('stroke-width', 1)
-          .attr('class', `habit-${habitIndex + 1} day-${segment.day}`)
-          .attr('data-fecha', segment.fecha)
-          .attr('data-habit', habitIndex + 1)
-          .attr('data-day', segment.day)
-          .style('cursor', 'pointer')
-          .style('pointer-events', 'all'); // Hacer el segmento clickeable
-        
-        // Verificar que los atributos se establecieron correctamente (solo para el día 31 para debugging)
-        if (segment.day === 31) {
-          console.log(`[RadialChart] Segmento día 31 renderizado - fecha: ${segment.fecha}, hábito: ${habitIndex + 1}, atributos establecidos: data-fecha="${segment.fecha}", data-day="${segment.day}"`);
-        }
-        
-        // Agregar doble click y click simple para marcar/desmarcar el hábito
-        // Verificar si el día es editable basándose en la fecha del segmento
-        const segmentDate = new Date(segment.fecha);
-        segmentDate.setHours(0, 0, 0, 0);
-        const todayCheck = new Date();
-        todayCheck.setHours(0, 0, 0, 0);
-        const isEditable = segmentDate.getTime() <= todayCheck.getTime();
-        
-        if (onHabitToggle && isEditable) {
-          // Capturar los valores del segmento actual en el closure para logging
-          const currentSegmentDay = segment.day;
-          const currentSegmentFecha = segment.fecha;
-          const currentHabitIndex = habitIndex + 1;
-          
-          const handleHabitToggle = async function(event: any) {
-            event.stopPropagation(); // Evitar que se propague al click del día
-            event.preventDefault(); // Prevenir comportamiento por defecto
-            
-            // Usar directamente los datos del segmento que capturó el evento
-            // Esto es más confiable que calcular basándose en coordenadas
-            const fecha = currentSegmentFecha;
-            const day = String(currentSegmentDay);
-            const habitId = currentHabitIndex;
-            
-            // Encontrar el segmento correspondiente para obtener el valor actual del hábito
-            const foundSegment = segments.find(s => s.day === currentSegmentDay);
-            
-            console.log(`[RadialChart] ========================================`);
-            console.log(`[RadialChart] Clic detectado en segmento`);
-            console.log(`[RadialChart] Día del segmento: ${currentSegmentDay}`);
-            console.log(`[RadialChart] Fecha del segmento: ${fecha}`);
-            console.log(`[RadialChart] Hábito: ${habitId}`);
-            
-            // Validar que la fecha sea válida
-            if (!fecha || fecha.length !== 10) {
-              console.error(`[RadialChart] ERROR: Fecha inválida: "${fecha}"`);
-              return;
-            }
-            
-            // Usar el elemento que capturó el evento directamente
-            const pathElement = d3.select(this);
-            
-            // Obtener el valor actual del hábito desde el segmento encontrado
-            const foundSegmentHabitValue = foundSegment?.habits[habitId - 1] || 0;
-            const currentValue = foundSegmentHabitValue;
-            const newValue = currentValue === 1 ? 0 : 1;
-            const newColor = getHabitColor(newValue, false);
-            
-            // Obtener el color original del elemento
-            const originalColor = pathElement.attr('fill') || color;
-            
-            // Actualizar color inmediatamente (optimistic update)
-            pathElement.attr('fill', newColor);
-            
-            // Llamar a la función para actualizar en el servidor
-            try {
-              console.log(`[RadialChart] Enviando al servidor - fecha: ${fecha}, habitId: ${habitId}`);
-              await onHabitToggle(fecha, habitId);
-              console.log(`[RadialChart] Actualización exitosa`);
-              // El color ya está actualizado, el re-renderizado del gráfico mantendrá el cambio
-            } catch (error) {
-              // Si hay error, revertir el color
-              pathElement.attr('fill', originalColor);
-              console.error('[RadialChart] Error al actualizar hábito:', error);
-            }
-          };
-          
-          // Agregar tanto doble click como click simple
-          habitPath
-            .on('dblclick', handleHabitToggle)
-            .on('click', handleHabitToggle);
-          
-          // Efecto hover para indicar que es clickeable
-          habitPath
-            .on('mouseenter', function() {
-              if (habitValue === 0) {
-                d3.select(this).attr('fill', '#e3f2fd'); // Azul claro al hover si no está completado
-              }
-            })
-            .on('mouseleave', function() {
-              d3.select(this).attr('fill', color); // Restaurar color original
-            });
-        } else if (onHabitToggle) {
-          // Si no es editable, mostrar cursor no permitido
-          habitPath.style('cursor', 'not-allowed');
-        }
-      }
+      // Los segmentos se generarán después de crear las etiquetas, justo debajo de ellas
       
       // Crear la etiqueta del día asociada al mismo segmento
       // IMPORTANTE: Usar el mismo dayCenterAngle calculado para asegurar alineación perfecta
@@ -374,6 +240,20 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       
       // Guardar la posición de esta etiqueta
       labelPositions.push({ day: dayNumber, x, y, angle: centroidAngle });
+      
+      // Crear una línea de referencia desde el label hasta el centro para visualizar la alineación
+      const referenceLine = svg
+        .append('line')
+        .attr('x1', x)
+        .attr('y1', y)
+        .attr('x2', centerX)
+        .attr('y2', centerY)
+        .attr('stroke', daysBeforeToday === 0 ? '#2196f3' : '#cccccc') // Azul para el día actual, gris para los demás
+        .attr('stroke-width', daysBeforeToday === 0 ? 2 : 1)
+        .attr('stroke-dasharray', daysBeforeToday === 0 ? '5,5' : '3,3')
+        .attr('opacity', 0.5)
+        .attr('class', `label-reference-line day-${dayNumber}`)
+        .attr('data-day', dayNumber);
       
       const isToday = segment.isToday;
       
@@ -411,6 +291,8 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
         .style('pointer-events', 'none')
         .style('user-select', 'none')
         .style('cursor', 'pointer');
+      
+      // Los segmentos se generarán después de crear las etiquetas de los hábitos, alineados horizontalmente
     });
 
     // Lista de hábitos a la izquierda del punto de inicio (00:00), cada uno alineado con su anillo
@@ -441,9 +323,14 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       const displayText = displayNames[i] || `Hábito ${i + 1}`;
       
       // Crear un grupo para cada hábito (texto + fondo para edición)
+      // Asociación clara: hábito i+1 (índice i) - el hábito 1 corresponde al índice 0
+      const habitId = i + 1;
       const habitGroup = habitLabelsGroup
         .append('g')
-        .attr('class', `habit-label-group habit-${i + 1}`)
+        .attr('class', `habit-label-group habit-${habitId}`)
+        .attr('data-habit-index', String(i)) // Índice del hábito (0-based)
+        .attr('data-habit-id', String(habitId)) // ID del hábito (1-based)
+        .attr('id', `habit-label-${habitId}`) // ID único para asociación
         .style('cursor', 'pointer');
       
       // Fondo semi-transparente para hover
@@ -541,6 +428,115 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
         .on('mouseleave', function() {
           bg.attr('fill', 'transparent');
         });
+      
+      // Generar segmentos radiales para este hábito, alineados con la etiqueta
+      // Un segmento por cada día, siguiendo el ángulo radial de cada etiqueta de día
+      const segmentWidth = 12; // Ancho del segmento (perpendicular a la línea radial)
+      const segmentStartRadius = Math.sqrt(Math.pow(labelX - centerX, 2) + Math.pow(labelY - centerY, 2)) + 10; // Inicio después de la etiqueta del hábito
+      
+      // Crear un grupo para los segmentos de este hábito
+      const habitSegmentsGroup = svg
+        .append('g')
+        .attr('class', `habit-segments habit-${i + 1}`)
+        .attr('data-habit-index', i);
+      
+      // Para cada día, crear un segmento radial
+      segments.forEach((daySegment) => {
+        const daySegmentDate = new Date(daySegment.fecha);
+        daySegmentDate.setHours(0, 0, 0, 0);
+        const todayCheck = new Date();
+        todayCheck.setHours(0, 0, 0, 0);
+        const isEditable = daySegmentDate.getTime() <= todayCheck.getTime();
+        
+        // Obtener el valor del hábito para este día
+        const habitValue = daySegment.habits[i] || 0;
+        const color = getHabitColor(habitValue, false);
+        
+        // Obtener el ángulo del día
+        const dayCenterAngle = segmentAngles.get(daySegment.fecha)?.centerAngle;
+        if (!dayCenterAngle) return; // Si no hay ángulo, saltar este día
+        
+        // Calcular la posición donde termina el segmento (cerca de la etiqueta del día)
+        const dayLabelRadius = maxRadius + 30;
+        const segmentEndRadius = dayLabelRadius - 20; // Un poco antes de la etiqueta del día
+        
+        // Calcular el ángulo perpendicular para el ancho del segmento
+        const perpendicularAngle = dayCenterAngle + Math.PI / 2;
+        
+        // Calcular los puntos del segmento (rectángulo radial)
+        const startX = centerX + Math.cos(dayCenterAngle) * segmentStartRadius;
+        const startY = centerY + Math.sin(dayCenterAngle) * segmentStartRadius;
+        const endX = centerX + Math.cos(dayCenterAngle) * segmentEndRadius;
+        const endY = centerY + Math.sin(dayCenterAngle) * segmentEndRadius;
+        
+        // Calcular el offset perpendicular para el ancho
+        const offsetX = Math.cos(perpendicularAngle) * (segmentWidth / 2);
+        const offsetY = Math.sin(perpendicularAngle) * (segmentWidth / 2);
+        
+        // Crear el segmento radial como un rectángulo que sigue el ángulo
+        // Asociación clara: hábito i+1 (índice i) con el segmento correspondiente
+        const habitId = i + 1; // El hábito 1 corresponde al índice 0, hábito 2 al índice 1, etc.
+        const segmentPath = habitSegmentsGroup
+          .append('path')
+          .attr('d', `M ${startX - offsetX} ${startY - offsetY} 
+                     L ${endX - offsetX} ${endY - offsetY} 
+                     L ${endX + offsetX} ${endY + offsetY} 
+                     L ${startX + offsetX} ${startY + offsetY} Z`)
+          .attr('fill', color)
+          .attr('stroke', '#ffffff')
+          .attr('stroke-width', 1)
+          .attr('class', `habit-${habitId} day-${daySegment.day} habit-segment`)
+          .attr('data-fecha', daySegment.fecha)
+          .attr('data-habit', String(habitId))
+          .attr('data-habit-index', String(i)) // Índice del hábito (0-based)
+          .attr('data-day', daySegment.day)
+          .attr('id', `segment-habit-${habitId}-day-${daySegment.day}`) // ID único para asociación clara
+          .style('cursor', isEditable ? 'pointer' : 'not-allowed')
+          .style('pointer-events', 'all');
+        
+        if (onHabitToggle && isEditable) {
+          const currentSegmentDay = daySegment.day;
+          const currentSegmentFecha = daySegment.fecha;
+          const currentHabitIndex = i + 1;
+          
+          const handleHabitToggle = async function(event: any) {
+            event.stopPropagation();
+            event.preventDefault();
+            
+            const fecha = currentSegmentFecha;
+            const habitId: number = currentHabitIndex;
+            const foundSegment = segments.find(s => s.day === currentSegmentDay);
+            
+            const pathElement = d3.select(this);
+            const foundSegmentHabitValue = foundSegment?.habits[habitId - 1] || 0;
+            const currentValue = foundSegmentHabitValue;
+            const newValue = currentValue === 1 ? 0 : 1;
+            const newColor = getHabitColor(newValue, false);
+            const originalColor = pathElement.attr('fill') || color;
+            
+            pathElement.attr('fill', newColor);
+            
+            try {
+              await onHabitToggle(fecha, habitId);
+            } catch (error) {
+              pathElement.attr('fill', originalColor);
+              console.error('[RadialChart] Error al actualizar hábito:', error);
+            }
+          };
+          
+          segmentPath
+            .on('dblclick', handleHabitToggle)
+            .on('click', handleHabitToggle)
+            .on('mouseenter', function() {
+              if (habitValue === 0) {
+                d3.select(this).attr('fill', '#e3f2fd');
+              }
+            })
+            .on('mouseleave', function() {
+              d3.select(this).attr('fill', color);
+            });
+        }
+      });
     }
     
     // ELIMINADO: Borde resaltado para el día seleccionado

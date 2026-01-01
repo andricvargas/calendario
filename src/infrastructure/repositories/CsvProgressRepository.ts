@@ -123,7 +123,8 @@ export class CsvProgressRepository implements ProgressRepository {
       const existingValues: number[] = [];
       for (let i = 1; i <= habitCount; i++) {
         const habitKey = `habito_${i}`;
-        existingValues.push(existingDayData[habitKey] || 0);
+        const value = existingDayData[habitKey];
+        existingValues.push(value === 1 || value === '1' ? 1 : 0);
       }
       console.log(`[CsvProgressRepository] Valores existentes en CSV: [${existingValues.join(', ')}]`);
       

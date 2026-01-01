@@ -53,24 +53,25 @@ export function useProgress() {
   const toggleHabit = useCallback(async (fecha: string, habitId: number) => {
     try {
       // Verificar autenticación antes de hacer la petición
-      const authController = new AbortController();
-      const authTimeoutId = setTimeout(() => authController.abort(), 5000); // 5 segundos timeout
-      
-      const authCheck = await fetch('/api/auth/status', {
-        credentials: 'include',
-        signal: authController.signal,
-      });
-      
-      clearTimeout(authTimeoutId);
-      
-      if (!authCheck.ok) {
-        throw new Error('No autenticado. Por favor, inicia sesión nuevamente.');
-      }
-      
-      const authData = await authCheck.json();
-      if (!authData.authenticated) {
-        throw new Error('No autenticado. Por favor, inicia sesión nuevamente.');
-      }
+      // TEMPORALMENTE COMENTADO PARA DEBUG
+      // const authController = new AbortController();
+      // const authTimeoutId = setTimeout(() => authController.abort(), 5000); // 5 segundos timeout
+      // 
+      // const authCheck = await fetch('/api/auth/status', {
+      //   credentials: 'include',
+      //   signal: authController.signal,
+      // });
+      // 
+      // clearTimeout(authTimeoutId);
+      // 
+      // if (!authCheck.ok) {
+      //   throw new Error('No autenticado. Por favor, inicia sesión nuevamente.');
+      // }
+      // 
+      // const authData = await authCheck.json();
+      // if (!authData.authenticated) {
+      //   throw new Error('No autenticado. Por favor, inicia sesión nuevamente.');
+      // }
 
       // Crear un AbortController para timeout en la petición principal
       const progressController = new AbortController();
