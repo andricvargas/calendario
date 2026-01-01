@@ -37,12 +37,12 @@ router.post('/validate-totp', (req: Request, res: Response) => {
   }
 });
 
-router.post('/logout', (req: AuthenticatedRequest, res: Response) => {
-  req.session = undefined;
+router.post('/logout', (req: Request, res: Response) => {
+  (req.session as any) = undefined;
   res.json({ success: true, message: 'Sesión cerrada' });
 });
 
-router.get('/status', (req: AuthenticatedRequest, res: Response) => {
+router.get('/status', (req: Request, res: Response) => {
   try {
     // Respuesta rápida sin logs excesivos para evitar saturación
     const isAuthenticated = req.session?.authenticated === true;

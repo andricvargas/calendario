@@ -5,7 +5,7 @@ import { DateService } from '@domain/services/DateService';
 export class MarcarHabitoUseCase {
   constructor(
     private progressRepository: ProgressRepository,
-    private dateService: DateService
+    private _dateService: DateService
   ) {}
 
   async execute(day: Day, habitId: number): Promise<void> {

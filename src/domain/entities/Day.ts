@@ -4,7 +4,7 @@ export class Day {
   constructor(
     public readonly date: Date,
     public readonly habits: Habit[],
-    private readonly isToday: boolean
+    private readonly _isToday: boolean
   ) {
     if (habits.length === 0) {
       throw new Error('Un día debe tener al menos un hábito');

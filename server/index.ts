@@ -63,10 +63,10 @@ app.use((req, res, next) => {
 });
 
 // Middleware para logging de peticiones (solo para rutas importantes, no para status checks)
-app.use((req, res, next) => {
+app.use((_req, _res, next) => {
   // Solo loguear peticiones que no sean checks de estado frecuentes
-  if (!req.path.includes('/status') && !req.path.includes('/ping')) {
-    console.log(`[Server] ${req.method} ${req.path}`);
+  if (!_req.path.includes('/status') && !_req.path.includes('/ping')) {
+    console.log(`[Server] ${_req.method} ${_req.path}`);
   }
   next();
 });
@@ -79,7 +79,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/progress', progressRoutes);
 
 // Middleware de manejo de errores global (debe ir después de las rutas)
-app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   console.error('[Server] Error no manejado:', err);
   res.status(500).json({ 
     error: 'Error interno del servidor',
@@ -88,25 +88,25 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Ruta de prueba para verificar que el servidor está funcionando
-app.get('/api/test', (req, res) => {
+app.get('/api/test', (_req, res) => {
   console.log('[Server] GET /api/test - Servidor respondiendo');
   res.json({ message: 'Server is running', timestamp: new Date().toISOString() });
 });
 
 // Ruta de prueba simple para verificar conectividad
-app.get('/api/ping', (req, res) => {
+app.get('/api/ping', (_req, res) => {
   console.log('[Server] GET /api/ping - Ping recibido');
   res.json({ status: 'ok', timestamp: Date.now() });
 });
 
 // En desarrollo, redirigir la raíz al frontend de Vite
 if (process.env.NODE_ENV !== 'production') {
-  app.get('/', (req, res) => {
+  app.get('/', (_req, res) => {
     res.redirect('http://localhost:3000');
   });
   
   // Para cualquier otra ruta que no sea /api, mostrar mensaje
-  app.get('*', (req, res) => {
+  app.get('*', (_req, res) => {
     if (!req.path.startsWith('/api')) {
       res.status(404).send(`
         <html>
@@ -135,7 +135,7 @@ if (process.env.NODE_ENV !== 'production') {
 // Servir archivos estáticos en producción
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../dist')));
-  app.get('*', (req, res) => {
+  app.get('*', (_req, res) => {
     res.sendFile(path.join(__dirname, '../dist/index.html'));
   });
 }

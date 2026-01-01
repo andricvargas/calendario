@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { AuthenticatedRequest, requireAuth } from '../middleware/authMiddleware';
+import { AuthenticatedRequest } from '../middleware/authMiddleware';
 import { CargarProgresoMensualUseCase } from '../../src/application/use-cases/CargarProgresoMensualUseCase';
 import { MarcarHabitoUseCase } from '../../src/application/use-cases/MarcarHabitoUseCase';
 import { CsvProgressRepository } from '../../src/infrastructure/repositories/CsvProgressRepository';
@@ -7,7 +7,6 @@ import { CsvAdapter } from '../../src/infrastructure/csv/CsvAdapter';
 import { SystemDateAdapter } from '../../src/infrastructure/time/SystemDateAdapter';
 import { FileHabitConfigService } from '../../src/infrastructure/habitConfig/FileHabitConfigService';
 import * as path from 'path';
-import * as fs from 'fs/promises';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -40,7 +39,7 @@ const marcarHabitoUseCase = new MarcarHabitoUseCase(
 // TEMPORALMENTE COMENTADO PARA DEBUG
 // router.use(requireAuth);
 
-router.get('/', async (req: AuthenticatedRequest, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
     const { year, month } = req.query;
     const yearNum = year ? parseInt(year as string, 10) : undefined;
@@ -74,7 +73,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
-router.post('/', async (req: AuthenticatedRequest, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
   try {
     const { fecha, habitId } = req.body;
     
@@ -187,7 +186,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
-router.get('/csv', async (req: AuthenticatedRequest, res: Response) => {
+router.get('/csv', async (_req: Request, res: Response) => {
   try {
     const allData = await progressRepository.getAllProgress();
     const habitCount = habitConfigService.getHabitCount();
@@ -202,7 +201,7 @@ router.get('/csv', async (req: AuthenticatedRequest, res: Response) => {
 });
 
 // Endpoint para obtener el número de hábitos
-router.get('/habit-count', async (req: AuthenticatedRequest, res: Response) => {
+router.get('/habit-count', async (_req: Request, res: Response) => {
   try {
     const count = habitConfigService.getHabitCount();
     res.json({ count });
@@ -212,7 +211,7 @@ router.get('/habit-count', async (req: AuthenticatedRequest, res: Response) => {
 });
 
 // Endpoint para actualizar el número de hábitos
-router.post('/habit-count', async (req: AuthenticatedRequest, res: Response) => {
+router.post('/habit-count', async (req: Request, res: Response) => {
   try {
     const { count } = req.body;
     
@@ -230,7 +229,7 @@ router.post('/habit-count', async (req: AuthenticatedRequest, res: Response) => 
 });
 
 // Endpoint para actualizar los nombres de los hábitos en el CSV
-router.post('/habit-names', async (req: AuthenticatedRequest, res: Response) => {
+router.post('/habit-names', async (req: Request, res: Response) => {
   try {
     const { habitNames } = req.body;
     
