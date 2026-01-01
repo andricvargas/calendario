@@ -381,27 +381,29 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       
       const cell = row
         .append('xhtml:td')
-        .style('padding', '4px 8px')
+        .style('padding-left', '8px')
+        .style('padding-right', '8px')
         .style('vertical-align', 'middle')
         .style('cursor', 'pointer')
         .style('border', '1px solid #ddd')
         .style('background-color', '#ffffff')
-        .style('position', 'relative');
+        .style('position', 'relative')
+        .style('overflow', 'visible');
       
-      // Calcular la posición del div para alinear el centro del contenido con position.y (línea circular)
-      // El centro del contenido debe estar en position.y
+      // Calcular la posición del contenido para alinearlo exactamente con position.y (línea circular)
+      // position.y es relativo al SVG, necesitamos convertirlo a posición relativa a la celda
       const cellTopY = tableTopY + (i * rowHeight);
-      const cellCenterY = cellTopY + (rowHeight / 2);
-      const offsetFromCellCenter = position.y - cellCenterY;
+      const positionYRelativeToCell = position.y - cellTopY;
       
-      // Ajustar la posición del contenido de la celda para alinear su centro con la línea circular
+      // Crear un div con posición absoluta para alinear el contenido exactamente en position.y
       const cellContent = cell
         .append('xhtml:div')
         .style('position', 'absolute')
-        .style('top', `${rowHeight / 2 + offsetFromCellCenter}px`)
+        .style('top', `${positionYRelativeToCell}px`)
         .style('left', '8px')
         .style('right', '8px')
-        .style('transform', 'translateY(-50%)');
+        .style('transform', 'translateY(-50%)')
+        .style('pointer-events', 'auto');
       
       // Texto del hábito dentro del div de contenido
       const textElement = cellContent
@@ -522,7 +524,7 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
         const perpendicularAngle = dayCenterAngle + Math.PI / 2;
         
         // Calcular los puntos del segmento (rectángulo radial) usando el radio original
-        // Esto preserva la forma radial original
+        // Esto preserva la forma radial original sin distorsión
         const startX = centerX + Math.cos(dayCenterAngle) * segmentStartRadius;
         const startY = centerY + Math.sin(dayCenterAngle) * segmentStartRadius;
         
