@@ -4,7 +4,7 @@ module.exports = {
   apps: [
     {
       name: 'radial-habit-tracker',
-      script: path.join(__dirname, 'dist/server/index.js'),
+      script: './dist/server/index.js',
       instances: 1,
       exec_mode: 'fork',
       cwd: __dirname,
