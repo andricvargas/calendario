@@ -15,54 +15,94 @@ const aliasMap = {
 
 // Función recursiva para encontrar todos los archivos .js
 function findJsFiles(dir, fileList = []) {
-  const files = readdirSync(dir);
-  files.forEach(file => {
-    const filePath = join(dir, file);
-    const stat = statSync(filePath);
-    if (stat.isDirectory()) {
-      findJsFiles(filePath, fileList);
-    } else if (file.endsWith('.js')) {
-      fileList.push(filePath);
-    }
-  });
+  try {
+    const files = readdirSync(dir);
+    files.forEach(file => {
+      const filePath = join(dir, file);
+      try {
+        const stat = statSync(filePath);
+        if (stat.isDirectory()) {
+          findJsFiles(filePath, fileList);
+        } else if (file.endsWith('.js')) {
+          fileList.push(filePath);
+        }
+      } catch (err) {
+        // Ignorar errores de acceso
+      }
+    });
+  } catch (err) {
+    console.error(`Error reading directory ${dir}:`, err.message);
+  }
   return fileList;
 }
 
 // Función para reemplazar paths en un archivo
 function fixPathsInFile(filePath) {
-  let content = readFileSync(filePath, 'utf-8');
-  let modified = false;
-  const distPath = join(__dirname, 'dist');
+  try {
+    let content = readFileSync(filePath, 'utf-8');
+    let originalContent = content;
+    const distPath = join(__dirname, 'dist');
 
-  // Reemplazar cada alias
-  for (const [alias, targetPath] of Object.entries(aliasMap)) {
-    // Buscar imports con el alias
-    const regex = new RegExp(`from ['"]${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^'"]+)['"]`, 'g');
-    
-    content = content.replace(regex, (match, importPath) => {
-      modified = true;
-      // Calcular la ruta relativa desde el archivo actual hasta el target
-      const currentDir = dirname(filePath);
-      const targetFile = join(distPath, targetPath, importPath);
-      // Asegurar que termine en .js
-      const targetFileWithExt = targetFile.endsWith('.js') ? targetFile : targetFile + '.js';
-      const relativePath = relative(currentDir, targetFileWithExt);
-      // Asegurar que la ruta relativa comience con ./
-      const finalPath = relativePath.startsWith('.') ? relativePath : './' + relativePath;
-      return `from '${finalPath.replace(/\\/g, '/')}'`;
-    });
-  }
+    // Reemplazar cada alias
+    for (const [alias, targetPath] of Object.entries(aliasMap)) {
+      // Escapar el alias para regex
+      const escapedAlias = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      
+      // Buscar imports con el alias (comillas simples o dobles)
+      const regex = new RegExp(`(from\\s+['"])${escapedAlias}([^'"]+)(['"])`, 'g');
+      
+      content = content.replace(regex, (match, prefix, importPath, suffix) => {
+        // Calcular la ruta relativa desde el archivo actual hasta el target
+        const currentDir = dirname(filePath);
+        const targetFile = join(distPath, targetPath, importPath);
+        // Asegurar que termine en .js
+        const targetFileWithExt = targetFile.endsWith('.js') ? targetFile : targetFile + '.js';
+        let relativePath = relative(currentDir, targetFileWithExt);
+        // Normalizar separadores de ruta
+        relativePath = relativePath.replace(/\\/g, '/');
+        // Asegurar que la ruta relativa comience con ./
+        if (!relativePath.startsWith('.')) {
+          relativePath = './' + relativePath;
+        }
+        // Mantener el formato original del import
+        return `${prefix}${relativePath}${suffix}`;
+      });
+    }
 
-  if (modified) {
-    writeFileSync(filePath, content, 'utf-8');
-    console.log(`Fixed paths in: ${filePath.replace(__dirname + '/', '')}`);
+    if (content !== originalContent) {
+      writeFileSync(filePath, content, 'utf-8');
+      console.log(`✓ Fixed paths in: ${filePath.replace(__dirname + '/', '')}`);
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.error(`Error processing ${filePath}:`, err.message);
+    return false;
   }
 }
 
 // Buscar todos los archivos .js en dist
 const distPath = join(__dirname, 'dist');
-const files = findJsFiles(distPath);
+console.log(`Looking for .js files in: ${distPath}`);
 
+try {
+  if (!statSync(distPath).isDirectory()) {
+    console.error(`Error: ${distPath} is not a directory`);
+    process.exit(1);
+  }
+} catch (err) {
+  console.error(`Error accessing ${distPath}:`, err.message);
+  process.exit(1);
+}
+
+const files = findJsFiles(distPath);
 console.log(`Found ${files.length} files to process...`);
-files.forEach(fixPathsInFile);
-console.log('Done fixing paths!');
+
+let fixedCount = 0;
+files.forEach(file => {
+  if (fixPathsInFile(file)) {
+    fixedCount++;
+  }
+});
+
+console.log(`\nDone! Fixed paths in ${fixedCount} files.`);
