@@ -234,63 +234,20 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
             event.stopPropagation(); // Evitar que se propague al click del día
             event.preventDefault(); // Prevenir comportamiento por defecto
             
-            // SOLUCIÓN: Usar las coordenadas del clic para determinar el día correcto
-            // Esto evita problemas cuando múltiples elementos están superpuestos visualmente
-            const [mouseX, mouseY] = d3.pointer(event, svg.node());
-            const clickX = mouseX - centerX;
-            const clickY = mouseY - centerY;
-            
-            // Calcular el ángulo del clic (en radianes, desde el centro)
-            // atan2 devuelve el ángulo en el rango [-π, π], donde -π/2 es arriba (12:00)
-            let clickAngle = Math.atan2(clickY, clickX);
-            
-            // Convertir al sistema de coordenadas del gráfico
-            // Nuestro sistema: día actual (todayDay) en todayStartAngle (-π/2, arriba)
-            // Días anteriores van hacia la derecha (restando ángulos)
-            // Día 31: todayStartAngle - 0 = -π/2
-            // Día 30: todayStartAngle - anglePerDay
-            // Día 1: todayStartAngle - 30*anglePerDay
-            
-            // Calcular la diferencia angular desde el día actual
-            let angleFromToday = clickAngle - todayStartAngle;
-            
-            // Normalizar al rango [-2π, 2π]
-            while (angleFromToday < -Math.PI) angleFromToday += 2 * Math.PI;
-            while (angleFromToday > Math.PI) angleFromToday -= 2 * Math.PI;
-            
-            // Si el ángulo es positivo, está a la izquierda del día actual (no debería pasar en nuestro diseño)
-            // Si es negativo, está a la derecha (días anteriores)
-            // Convertir a valor positivo para calcular el offset de días
-            let daysOffset = 0;
-            if (angleFromToday < 0) {
-              // Está a la derecha (días anteriores), calcular cuántos días
-              daysOffset = Math.floor(Math.abs(angleFromToday) / anglePerDay);
-            }
-            
-            // Calcular el día: día actual menos el offset
-            let calculatedDay = todayDay - daysOffset;
-            
-            // Asegurar que el día calculado esté en el rango válido [1, todayDay]
-            calculatedDay = Math.max(1, Math.min(todayDay, calculatedDay));
-            
-            // Encontrar el segmento correspondiente al día calculado
-            const foundSegment = segments.find(s => s.day === calculatedDay);
-            
-            // Usar el segmento encontrado o el del closure como fallback
-            const fecha = foundSegment?.fecha || currentSegmentFecha;
-            const day = String(calculatedDay);
+            // Usar directamente los datos del segmento que capturó el evento
+            // Esto es más confiable que calcular basándose en coordenadas
+            const fecha = currentSegmentFecha;
+            const day = String(currentSegmentDay);
             const habitId = currentHabitIndex;
+            
+            // Encontrar el segmento correspondiente para obtener el valor actual del hábito
+            const foundSegment = segments.find(s => s.day === currentSegmentDay);
             
             console.log(`[RadialChart] ========================================`);
             console.log(`[RadialChart] Clic detectado en segmento`);
-            console.log(`[RadialChart] Coordenadas del clic: (${clickX.toFixed(1)}, ${clickY.toFixed(1)})`);
-            console.log(`[RadialChart] Ángulo del clic: ${(clickAngle * 180 / Math.PI).toFixed(1)}°`);
-            console.log(`[RadialChart] Ángulo desde hoy: ${(angleFromToday * 180 / Math.PI).toFixed(1)}°`);
-            console.log(`[RadialChart] Offset de días: ${daysOffset}`);
-            console.log(`[RadialChart] Día calculado: ${calculatedDay}`);
-            console.log(`[RadialChart] Fecha determinada: ${fecha}`);
+            console.log(`[RadialChart] Día del segmento: ${currentSegmentDay}`);
+            console.log(`[RadialChart] Fecha del segmento: ${fecha}`);
             console.log(`[RadialChart] Hábito: ${habitId}`);
-            console.log(`[RadialChart] viewDate: ${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, '0')}`);
             
             // Validar que la fecha sea válida
             if (!fecha || fecha.length !== 10) {
@@ -298,18 +255,8 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
               return;
             }
             
-            // Encontrar el elemento SVG correcto basándome en el día calculado y el hábito
-            // Esto es importante porque el elemento que capturó el evento puede no ser el correcto
-            const correctPathElement = svg.select(`path[data-day="${calculatedDay}"][data-habit="${habitId}"]`);
-            
-            let pathElement: d3.Selection<SVGPathElement, unknown, null, undefined>;
-            if (correctPathElement.empty()) {
-              console.warn(`[RadialChart] No se encontró el elemento para día ${calculatedDay}, hábito ${habitId}. Usando elemento que capturó el evento.`);
-              // Fallback: usar el elemento que capturó el evento
-              pathElement = d3.select(this);
-            } else {
-              pathElement = correctPathElement;
-            }
+            // Usar el elemento que capturó el evento directamente
+            const pathElement = d3.select(this);
             
             // Obtener el valor actual del hábito desde el segmento encontrado
             const foundSegmentHabitValue = foundSegment?.habits[habitId - 1] || 0;
@@ -317,10 +264,10 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
             const newValue = currentValue === 1 ? 0 : 1;
             const newColor = getHabitColor(newValue, false);
             
-            // Obtener el color original del elemento correcto
+            // Obtener el color original del elemento
             const originalColor = pathElement.attr('fill') || color;
             
-            // Actualizar color inmediatamente (optimistic update) en el elemento correcto
+            // Actualizar color inmediatamente (optimistic update)
             pathElement.attr('fill', newColor);
             
             // Llamar a la función para actualizar en el servidor
