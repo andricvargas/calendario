@@ -125,9 +125,12 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Servir archivos estáticos en producción (ANTES del catch-all)
 if (process.env.NODE_ENV === 'production') {
+  // __dirname es dist/server/, así que ../ va a dist/
+  const distPath = path.join(__dirname, '..');
+  
   // Servir archivos estáticos del frontend (JS, CSS, imágenes, etc.)
   // express.static maneja automáticamente los archivos y devuelve 404 si no existen
-  app.use(express.static(path.join(__dirname, '../dist'), {
+  app.use(express.static(distPath, {
     index: false // No servir index.html automáticamente para rutas raíz
   }));
   
@@ -144,7 +147,7 @@ if (process.env.NODE_ENV === 'production') {
       return next(); // Dejar que express.static maneje el 404
     }
     // Para cualquier otra ruta, servir index.html (SPA)
-    res.sendFile(path.join(__dirname, '../dist/index.html'));
+    res.sendFile(path.join(distPath, 'index.html'));
   });
 }
 
