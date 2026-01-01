@@ -1,17 +1,20 @@
+const path = require('path');
+
 module.exports = {
   apps: [
     {
       name: 'radial-habit-tracker',
-      script: './dist/server/index.js',
+      script: path.join(__dirname, 'dist/server/index.js'),
       instances: 1,
       exec_mode: 'fork',
+      cwd: __dirname,
       env: {
         NODE_ENV: 'production',
         PORT: 3001,
       },
       // Configuración de logs
-      error_file: './logs/pm2-error.log',
-      out_file: './logs/pm2-out.log',
+      error_file: path.join(__dirname, 'logs/pm2-error.log'),
+      out_file: path.join(__dirname, 'logs/pm2-out.log'),
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
       
@@ -26,8 +29,7 @@ module.exports = {
       ignore_watch: ['node_modules', 'logs', '*.log', 'dist'],
       
       // Variables de entorno desde archivo .env
-      env_file: '.env',
+      env_file: path.join(__dirname, '.env'),
     },
   ],
 };
-

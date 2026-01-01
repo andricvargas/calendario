@@ -4,7 +4,7 @@
     "module": "ESNext",
     "moduleResolution": "node",
     "outDir": "./dist",
-    "rootDir": ".",
+    "rootDir": "./",
     "noEmit": false,
     "allowImportingTsExtensions": false,
     "esModuleInterop": true,
@@ -21,6 +21,6 @@
       "@presentation/*": ["src/presentation/*"]
     }
   },
-  "include": ["server/**/*"],
+  "include": ["server/**/*.ts"],
   "exclude": ["node_modules", "dist", "src"]
 }
