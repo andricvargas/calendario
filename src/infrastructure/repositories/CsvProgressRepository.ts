@@ -5,7 +5,6 @@ import { DateService } from '@domain/services/DateService';
 import { HabitConfigService } from '@domain/services/HabitConfigService';
 import { CsvAdapter } from '../csv/CsvAdapter';
 import * as fs from 'fs/promises';
-import * as path from 'path';
 
 export class CsvProgressRepository implements ProgressRepository {
   private csvPath: string;
@@ -181,13 +180,38 @@ export class CsvProgressRepository implements ProgressRepository {
       allData.sort((a, b) => a.fecha.trim().localeCompare(b.fecha.trim()));
     }
 
-    const csvContent = this.csvAdapter.stringify(allData, habitCount);
+    // Leer los nombres de los hábitos desde el CSV actual para preservarlos
+    let habitNames: string[] | undefined;
+    try {
+      const currentCsvContent = await fs.readFile(this.csvPath, 'utf-8');
+      if (currentCsvContent && currentCsvContent.trim()) {
+        habitNames = this.csvAdapter.extractHabitNames(currentCsvContent, habitCount);
+        console.log(`[CsvProgressRepository] Nombres de hábitos extraídos del CSV: ${habitNames.join(', ')}`);
+      } else {
+        console.log(`[CsvProgressRepository] CSV vacío, usando nombres por defecto`);
+      }
+    } catch (error: any) {
+      // Si el archivo no existe o hay otro error, usar nombres por defecto
+      if (error.code === 'ENOENT') {
+        console.log(`[CsvProgressRepository] Archivo CSV no existe aún, usando nombres por defecto`);
+      } else {
+        console.warn(`[CsvProgressRepository] No se pudieron leer los nombres de hábitos del CSV, usando valores por defecto:`, error.message);
+      }
+    }
+
+    const csvContent = this.csvAdapter.stringify(allData, habitCount, habitNames);
     console.log(`[CsvProgressRepository] CSV generado, longitud: ${csvContent.length} caracteres`);
-    console.log(`[CsvProgressRepository] Primeras líneas del CSV:\n${csvContent.split('\n').slice(0, 3).join('\n')}`);
+    console.log(`[CsvProgressRepository] Total de datos a guardar: ${allData.length}`);
+    console.log(`[CsvProgressRepository] Primeras líneas del CSV:\n${csvContent.split('\n').slice(0, 5).join('\n')}`);
+    console.log(`[CsvProgressRepository] Ruta absoluta del archivo: ${this.csvPath}`);
     
     try {
       await fs.writeFile(this.csvPath, csvContent, 'utf-8');
       console.log(`[CsvProgressRepository] Archivo guardado exitosamente en: ${this.csvPath}`);
+      
+      // Verificar que el archivo existe y tiene contenido
+      const stats = await fs.stat(this.csvPath);
+      console.log(`[CsvProgressRepository] Archivo existe, tamaño: ${stats.size} bytes`);
       
       // Verificar que el archivo se escribió correctamente
       const verifyContent = await fs.readFile(this.csvPath, 'utf-8');
