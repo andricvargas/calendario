@@ -8,7 +8,7 @@
     "dev:server": "tsx watch server/index.ts",
     "build": "npm run build:server && npm run build:client",
     "build:client": "vite build",
-    "build:server": "tsc --project tsconfig.server.json",
+    "build:server": "tsc --project tsconfig.server.json && tsc-alias -p tsconfig.server.json",
     "preview": "vite preview",
     "start": "node dist/server/index.js",
     "pm2:start": "pm2 start ecosystem.config.cjs",
@@ -40,6 +40,7 @@
     "@types/react-dom": "^18.2.17",
     "@vitejs/plugin-react": "^4.2.1",
     "concurrently": "^9.2.1",
+    "tsc-alias": "^1.8.10",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3",
     "vite": "^7.3.0"
