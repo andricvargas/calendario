@@ -313,6 +313,8 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
     // Posición X de las etiquetas: 40% del radio hacia la izquierda desde donde empiezan los segmentos
     const labelX = segmentStartX - separationPx;
     
+    // Calcular todas las posiciones Y de las etiquetas primero
+    const habitLabelPositions: Array<{ y: number; habitId: number; displayText: string }> = [];
     for (let i = 0; i < numHabits; i++) {
       // Calcular la posición Y basada en el radio del anillo del hábito
       const habitRadius = startRadius + (i * habitSpacing) + (habitSpacing / 2);
@@ -321,56 +323,104 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       const labelY = centerY + Math.sin(labelAngle) * habitRadius;
       
       const displayText = displayNames[i] || `Hábito ${i + 1}`;
+      habitLabelPositions.push({
+        y: labelY,
+        habitId: i + 1,
+        displayText
+      });
+    }
+    
+    // Calcular la altura total de la tabla (desde la primera hasta la última etiqueta)
+    const minY = Math.min(...habitLabelPositions.map(p => p.y));
+    const maxY = Math.max(...habitLabelPositions.map(p => p.y));
+    const tableHeight = maxY - minY + 20; // Altura con padding
+    const tableTopY = minY - 10; // Posición superior de la tabla
+    
+    // Crear una tabla HTML para contener las etiquetas de los hábitos
+    const tableWidth = 80;
+    const tableForeignObject = habitLabelsGroup
+      .append('foreignObject')
+      .attr('x', labelX)
+      .attr('y', tableTopY)
+      .attr('width', tableWidth)
+      .attr('height', tableHeight)
+      .style('overflow', 'visible');
+    
+    const table = tableForeignObject
+      .append('xhtml:table')
+      .style('width', '100%')
+      .style('height', '100%')
+      .style('border-collapse', 'collapse')
+      .style('border-spacing', '0')
+      .style('margin', '0')
+      .style('padding', '0')
+      .style('border', '1px solid #ccc')
+      .style('background-color', '#ffffff');
+    
+    // Almacenar las alturas de las celdas para usarlas en los segmentos
+    // Todas las celdas tendrán la misma altura
+    const uniformCellHeight = tableHeight / numHabits;
+    const cellHeights: number[] = [];
+    
+    // Crear una fila por cada hábito
+    for (let i = 0; i < numHabits; i++) {
+      const position = habitLabelPositions[i];
       
-      // Crear un grupo para cada hábito (texto + fondo para edición)
-      // Asociación clara: hábito i+1 (índice i) - el hábito 1 corresponde al índice 0
-      const habitId = i + 1;
-      const habitGroup = habitLabelsGroup
-        .append('g')
-        .attr('class', `habit-label-group habit-${habitId}`)
-        .attr('data-habit-index', String(i)) // Índice del hábito (0-based)
-        .attr('data-habit-id', String(habitId)) // ID del hábito (1-based)
-        .attr('id', `habit-label-${habitId}`) // ID único para asociación
-        .style('cursor', 'pointer');
+      // Todas las filas tienen la misma altura
+      const rowHeight = uniformCellHeight;
       
-      // Fondo semi-transparente para hover
-      const bg = habitGroup
-        .append('rect')
-        .attr('x', labelX)
-        .attr('y', labelY - 10)
-        .attr('width', 80)
-        .attr('height', 20)
-        .attr('fill', 'transparent')
-        .attr('rx', 3);
+      // Guardar la altura de la celda
+      cellHeights[i] = rowHeight;
       
-      // Texto del hábito
-      const textElement = habitGroup
-        .append('text')
-        .attr('x', labelX)
-        .attr('y', labelY)
-        .attr('text-anchor', 'start')
-        .attr('dy', '0.35em')
-        .attr('data-habit-index', i)
-        .text(`${i + 1}. ${displayText}`)
+      const row = table
+        .append('xhtml:tr')
+        .style('height', `${rowHeight}px`)
+        .attr('data-habit-index', String(i))
+        .attr('data-habit-id', String(position.habitId))
+        .attr('id', `habit-row-${position.habitId}`);
+      
+      const cell = row
+        .append('xhtml:td')
+        .style('padding', '4px 8px')
+        .style('vertical-align', 'middle')
+        .style('cursor', 'pointer')
+        .style('border', '1px solid #ddd')
+        .style('background-color', '#ffffff')
+        .style('position', 'relative');
+      
+      // Calcular la posición del div para alinear el centro del contenido con position.y (línea circular)
+      // El centro del contenido debe estar en position.y
+      const cellTopY = tableTopY + (i * rowHeight);
+      const cellCenterY = cellTopY + (rowHeight / 2);
+      const offsetFromCellCenter = position.y - cellCenterY;
+      
+      // Ajustar la posición del contenido de la celda para alinear su centro con la línea circular
+      const cellContent = cell
+        .append('xhtml:div')
+        .style('position', 'absolute')
+        .style('top', `${rowHeight / 2 + offsetFromCellCenter}px`)
+        .style('left', '8px')
+        .style('right', '8px')
+        .style('transform', 'translateY(-50%)');
+      
+      // Texto del hábito dentro del div de contenido
+      const textElement = cellContent
+        .append('xhtml:span')
         .style('font-size', '11px')
         .style('font-weight', '500')
-        .style('fill', '#333')
-        .style('user-select', 'none');
+        .style('color', '#333')
+        .style('user-select', 'none')
+        .style('display', 'block')
+        .text(`${position.habitId}. ${position.displayText}`);
       
       // Hacer la etiqueta editable al hacer doble clic
-      habitGroup.on('dblclick', function() {
-        const currentText = displayText;
-        const textNode = d3.select(this).select('text');
+      cell.on('dblclick', function() {
+        const currentText = position.displayText;
+        const spanElement = d3.select(this).select('div').select('span');
         
         // Crear un input para editar
-        const foreignObject = d3.select(this)
-          .append('foreignObject')
-          .attr('x', labelX)
-          .attr('y', labelY - 10)
-          .attr('width', 75)
-          .attr('height', 20);
-        
-        const input = foreignObject
+        const cellDiv = d3.select(this).select('div');
+        const input = cellDiv
           .append('xhtml:input')
           .attr('type', 'text')
           .attr('value', currentText)
@@ -380,10 +430,13 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
           .style('border', '1px solid #2196f3')
           .style('border-radius', '3px')
           .style('padding', '0 3px')
-          .style('outline', 'none');
+          .style('outline', 'none')
+          .style('position', 'absolute')
+          .style('top', '0')
+          .style('left', '0');
         
         // Ocultar el texto mientras se edita
-        textNode.style('display', 'none');
+        spanElement.style('display', 'none');
         
         // Enfocar el input
         input.node()?.focus();
@@ -401,9 +454,9 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
           }
           
           // Actualizar el texto
-          textNode.text(`${i + 1}. ${newValue}`);
-          textNode.style('display', null);
-          foreignObject.remove();
+          spanElement.text(`${position.habitId}. ${newValue}`);
+          spanElement.style('display', null);
+          input.remove();
         };
         
         input.on('blur', saveEdit);
@@ -414,25 +467,25 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
         });
         input.on('keydown', function(event: any) {
           if (event.key === 'Escape') {
-            textNode.style('display', null);
-            foreignObject.remove();
+            spanElement.style('display', null);
+            input.remove();
           }
         });
       });
       
       // Efecto hover
-      habitGroup
+      cell
         .on('mouseenter', function() {
-          bg.attr('fill', '#f0f0f0');
+          d3.select(this).style('background-color', '#f0f0f0');
         })
         .on('mouseleave', function() {
-          bg.attr('fill', 'transparent');
+          d3.select(this).style('background-color', 'transparent');
         });
       
-      // Generar segmentos radiales para este hábito, alineados con la etiqueta
+      // Generar segmentos radiales para este hábito, alineados horizontalmente con la celda
       // Un segmento por cada día, siguiendo el ángulo radial de cada etiqueta de día
-      const segmentWidth = 12; // Ancho del segmento (perpendicular a la línea radial)
-      const segmentStartRadius = Math.sqrt(Math.pow(labelX - centerX, 2) + Math.pow(labelY - centerY, 2)) + 10; // Inicio después de la etiqueta del hábito
+      // El ancho del segmento debe ser igual a la altura de la celda del hábito
+      const segmentWidth = cellHeights[i]; // Ancho del segmento = altura de la celda
       
       // Crear un grupo para los segmentos de este hábito
       const habitSegmentsGroup = svg
@@ -456,6 +509,11 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
         const dayCenterAngle = segmentAngles.get(daySegment.fecha)?.centerAngle;
         if (!dayCenterAngle) return; // Si no hay ángulo, saltar este día
         
+        // Calcular el radio de inicio del segmento basado en la posición original de la etiqueta
+        // Esto mantiene la forma radial original sin distorsión
+        const labelY = habitLabelPositions[i].y;
+        const segmentStartRadius = Math.sqrt(Math.pow(labelX - centerX, 2) + Math.pow(labelY - centerY, 2)) + 10;
+        
         // Calcular la posición donde termina el segmento (cerca de la etiqueta del día)
         const dayLabelRadius = maxRadius + 30;
         const segmentEndRadius = dayLabelRadius - 20; // Un poco antes de la etiqueta del día
@@ -463,19 +521,22 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
         // Calcular el ángulo perpendicular para el ancho del segmento
         const perpendicularAngle = dayCenterAngle + Math.PI / 2;
         
-        // Calcular los puntos del segmento (rectángulo radial)
+        // Calcular los puntos del segmento (rectángulo radial) usando el radio original
+        // Esto preserva la forma radial original
         const startX = centerX + Math.cos(dayCenterAngle) * segmentStartRadius;
         const startY = centerY + Math.sin(dayCenterAngle) * segmentStartRadius;
+        
         const endX = centerX + Math.cos(dayCenterAngle) * segmentEndRadius;
         const endY = centerY + Math.sin(dayCenterAngle) * segmentEndRadius;
         
-        // Calcular el offset perpendicular para el ancho
+        // Calcular el offset perpendicular para el ancho del segmento
         const offsetX = Math.cos(perpendicularAngle) * (segmentWidth / 2);
         const offsetY = Math.sin(perpendicularAngle) * (segmentWidth / 2);
         
         // Crear el segmento radial como un rectángulo que sigue el ángulo
         // Asociación clara: hábito i+1 (índice i) con el segmento correspondiente
         const habitId = i + 1; // El hábito 1 corresponde al índice 0, hábito 2 al índice 1, etc.
+        
         const segmentPath = habitSegmentsGroup
           .append('path')
           .attr('d', `M ${startX - offsetX} ${startY - offsetY} 
