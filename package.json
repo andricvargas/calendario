@@ -6,10 +6,18 @@
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:client": "vite",
     "dev:server": "tsx watch server/index.ts",
-    "build": "tsc && vite build",
+    "build": "npm run build:server && npm run build:client",
+    "build:client": "vite build",
     "build:server": "tsc --project tsconfig.server.json",
     "preview": "vite preview",
-    "start": "node dist/server/index.js"
+    "start": "node dist/server/index.js",
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:stop": "pm2 stop radial-habit-tracker",
+    "pm2:restart": "pm2 restart radial-habit-tracker",
+    "pm2:delete": "pm2 delete radial-habit-tracker",
+    "pm2:logs": "pm2 logs radial-habit-tracker",
+    "pm2:status": "pm2 status",
+    "prod": "npm run build && npm run pm2:start"
   },
   "dependencies": {
     "react": "^18.2.0",

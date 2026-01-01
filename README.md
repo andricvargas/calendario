@@ -77,14 +77,37 @@ npm run dev:client
 
 ### Producción
 
+#### Opción 1: Con PM2 (Recomendado)
+
+```bash
+# 1. Instalar PM2 globalmente
+npm install -g pm2
+
+# 2. Configurar variables de entorno
+# Crear archivo .env con las variables necesarias (ver DEPLOY.md)
+
+# 3. Compilar proyecto
+npm run build
+
+# 4. Iniciar con PM2
+npm run pm2:start
+
+# O usar el script automatizado:
+# Linux/Mac: ./start-production.sh
+# Windows: .\start-production.ps1
+```
+
+#### Opción 2: Sin PM2
+
 ```bash
 # Build
 npm run build
-npm run build:server
 
 # Ejecutar
 npm start
 ```
+
+**Nota:** Para mantener el servicio activo y reiniciarlo automáticamente, se recomienda usar PM2. Ver [DEPLOY.md](./DEPLOY.md) para más detalles.
 
 ## Uso
 

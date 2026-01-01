@@ -28,14 +28,23 @@ app.use(
   })
 );
 
-// CORS para desarrollo
+// CORS - Configuración para desarrollo y producción
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  console.log(`[CORS] Request from origin: ${origin}`);
-  res.header('Access-Control-Allow-Origin', origin || 'http://localhost:3000');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  const allowedOrigins = process.env.CORS_ORIGIN 
+    ? process.env.CORS_ORIGIN.split(',')
+    : (process.env.NODE_ENV === 'production' 
+        ? [] // En producción sin CORS_ORIGIN, no permitir CORS (mismo dominio)
+        : ['http://localhost:3000']); // En desarrollo, permitir localhost
+  
+  // Si hay origen permitido o estamos en desarrollo
+  if (allowedOrigins.length > 0 && origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  }
+  
   if (req.method === 'OPTIONS') {
     res.sendStatus(200);
   } else {

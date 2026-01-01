@@ -11,22 +11,17 @@ export function requireAuth(
   res: Response,
   next: NextFunction
 ): void {
-  // TEMPORALMENTE COMENTADO PARA DEBUG - Siempre permitir acceso
-  // console.log(`[requireAuth] Verificando autenticación para ${req.method} ${req.path}`);
-  // console.log(`[requireAuth] Session ID: ${req.sessionID}`);
-  // console.log(`[requireAuth] Session data:`, req.session);
-  // console.log(`[requireAuth] Authenticated: ${req.session?.authenticated}`);
-  // console.log(`[requireAuth] Cookies:`, req.headers.cookie);
+  console.log(`[requireAuth] Verificando autenticación para ${req.method} ${req.path}`);
+  console.log(`[requireAuth] Session ID: ${req.sessionID}`);
+  console.log(`[requireAuth] Session data:`, req.session);
+  console.log(`[requireAuth] Authenticated: ${req.session?.authenticated}`);
   
-  // if (req.session?.authenticated) {
-  //   console.log(`[requireAuth] Autenticación exitosa`);
-  //   next();
-  // } else {
-  //   console.log(`[requireAuth] Error: No autenticado`);
-  //   res.status(401).json({ error: 'No autenticado', sessionId: req.sessionID });
-  // }
-  
-  // TEMPORALMENTE: Siempre permitir acceso
-  next();
+  if (req.session?.authenticated) {
+    console.log(`[requireAuth] Autenticación exitosa`);
+    next();
+  } else {
+    console.log(`[requireAuth] Error: No autenticado`);
+    res.status(401).json({ error: 'No autenticado', sessionId: req.sessionID });
+  }
 }
 
