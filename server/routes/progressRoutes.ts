@@ -229,5 +229,35 @@ router.post('/habit-count', async (req: AuthenticatedRequest, res: Response) => 
   }
 });
 
+// Endpoint para actualizar los nombres de los hábitos en el CSV
+router.post('/habit-names', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { habitNames } = req.body;
+    
+    if (!Array.isArray(habitNames)) {
+      return res.status(400).json({ error: 'habitNames debe ser un array' });
+    }
+
+    const habitCount = habitConfigService.getHabitCount();
+    if (habitNames.length !== habitCount) {
+      return res.status(400).json({ 
+        error: `El número de nombres (${habitNames.length}) no coincide con el número de hábitos (${habitCount})` 
+      });
+    }
+
+    // Validar que todos los nombres sean strings
+    if (!habitNames.every(name => typeof name === 'string')) {
+      return res.status(400).json({ error: 'Todos los nombres deben ser strings' });
+    }
+
+    await progressRepository.updateHabitNames(habitNames);
+    
+    res.json({ success: true, habitNames });
+  } catch (error: any) {
+    console.error('[POST /api/progress/habit-names] Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
 

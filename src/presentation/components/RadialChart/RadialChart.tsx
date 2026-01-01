@@ -4,7 +4,7 @@ import { RadialChartProps, SegmentData } from './RadialChart.types';
 import { calculateSegments, getHabitColor, createArc } from './RadialChart.utils';
 import './RadialChart.css';
 
-export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, habitNames = [], habitCount = 8 }: RadialChartProps) {
+export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, habitNames = [], habitCount = 8, onUpdateHabitName }: RadialChartProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -298,8 +298,8 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
     // Lista de hábitos a la izquierda del punto de inicio (00:00), cada uno alineado con su anillo
     const habitLabelsGroup = svg.append('g').attr('class', 'habit-labels');
     
-    // Usar nombres de hábitos si están disponibles, sino usar números
-    const displayNames = habitNames.length === 8 ? habitNames : Array.from({ length: numHabits }, (_, i) => `Hábito ${i + 1}`);
+    // Usar nombres de hábitos si están disponibles y tienen la longitud correcta, sino usar números
+    const displayNames = habitNames.length === numHabits ? habitNames : Array.from({ length: numHabits }, (_, i) => `Hábito ${i + 1}`);
     
     // Ángulo donde empiezan los segmentos (inicio de los hábitos)
     const labelAngle = todayStartAngle;
@@ -330,11 +330,12 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       });
     }
     
-    // Calcular la altura total de la tabla (desde la primera hasta la última etiqueta)
-    const minY = Math.min(...habitLabelPositions.map(p => p.y));
-    const maxY = Math.max(...habitLabelPositions.map(p => p.y));
-    const tableHeight = maxY - minY + 20; // Altura con padding
-    const tableTopY = minY - 10; // Posición superior de la tabla
+    // Calcular la altura total de la tabla para una línea vertical recta
+    // Las celdas deben estar en una línea vertical, no siguiendo la curva radial
+    const firstHabitY = habitLabelPositions[0].y;
+    const lastHabitY = habitLabelPositions[numHabits - 1].y;
+    const tableHeight = Math.abs(lastHabitY - firstHabitY) + 40; // Altura con padding
+    const tableTopY = Math.min(firstHabitY, lastHabitY) - 20; // Posición superior de la tabla
     
     // Crear una tabla HTML para contener las etiquetas de los hábitos
     const tableWidth = 80;
@@ -361,6 +362,11 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
     // Todas las celdas tendrán la misma altura
     const uniformCellHeight = tableHeight / numHabits;
     const cellHeights: number[] = [];
+    
+    // Altura uniforme para todos los segmentos (mismo valor fijo para todos los hábitos)
+    // Usar un tamaño fijo independiente del número de hábitos para evitar que se vean muy pequeños
+    // cuando hay pocos hábitos
+    const uniformSegmentWidth = Math.max(20, uniformCellHeight); // Mínimo 20px para que se vean bien
     
     // Crear una fila por cada hábito
     for (let i = 0; i < numHabits; i++) {
@@ -390,12 +396,14 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
         .style('position', 'relative')
         .style('overflow', 'visible');
       
-      // Calcular la posición del contenido para alinearlo exactamente con position.y (línea circular)
-      // position.y es relativo al SVG, necesitamos convertirlo a posición relativa a la celda
+      // Calcular la posición del contenido para que esté en una línea vertical recta
+      // Distribuir las celdas uniformemente en una línea vertical, no siguiendo la curva radial
       const cellTopY = tableTopY + (i * rowHeight);
-      const positionYRelativeToCell = position.y - cellTopY;
+      // Calcular la posición Y en la línea vertical recta (distribución uniforme)
+      const verticalLineY = tableTopY + (i * (tableHeight / numHabits)) + (rowHeight / 2);
+      const positionYRelativeToCell = verticalLineY - cellTopY;
       
-      // Crear un div con posición absoluta para alinear el contenido exactamente en position.y
+      // Crear un div con posición absoluta para alinear el contenido en la línea vertical
       const cellContent = cell
         .append('xhtml:div')
         .style('position', 'absolute')
@@ -445,32 +453,81 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
         input.node()?.select();
         
         // Guardar al presionar Enter o perder el foco
+        let isSaving = false; // Flag para evitar múltiples llamadas
         const saveEdit = () => {
-          const newValue = (input.node() as HTMLInputElement)?.value || currentText;
+          if (isSaving) return; // Evitar múltiples llamadas
+          isSaving = true;
           
-          // Actualizar el nombre del hábito
-          if (habitNames && habitNames.length === 8) {
-            habitNames[i] = newValue;
-            // Guardar en localStorage
-            localStorage.setItem('habitNames', JSON.stringify(habitNames));
+          const inputNode = input.node() as HTMLInputElement;
+          if (!inputNode || !inputNode.parentNode) {
+            isSaving = false;
+            return; // El input ya fue removido
+          }
+          
+          const newValue = inputNode.value || currentText;
+          
+          console.log('[RadialChart] Guardando nombre de hábito:', {
+            habitId: position.habitId,
+            newValue,
+            hasCallback: !!onUpdateHabitName,
+            currentHabitNames: habitNames
+          });
+          
+          // Actualizar el nombre del hábito usando el callback si está disponible
+          if (onUpdateHabitName) {
+            try {
+              const result = onUpdateHabitName(position.habitId, newValue);
+              // Manejar tanto funciones async como síncronas
+              if (result instanceof Promise) {
+                result.catch((error) => {
+                  console.error('[RadialChart] Error al ejecutar callback async:', error);
+                });
+              }
+              console.log('[RadialChart] Callback ejecutado correctamente');
+            } catch (error) {
+              console.error('[RadialChart] Error al ejecutar callback:', error);
+            }
+          } else {
+            console.warn('[RadialChart] No hay callback, usando fallback');
+            // Fallback: actualizar directamente en localStorage si no hay callback
+            if (habitNames && habitNames.length >= position.habitId) {
+              const updatedNames = [...habitNames];
+              updatedNames[position.habitId - 1] = newValue;
+              try {
+                localStorage.setItem('habit_names', JSON.stringify(updatedNames));
+                console.log('[RadialChart] Guardado en localStorage (fallback):', updatedNames);
+              } catch (error) {
+                console.error('[RadialChart] Error al guardar en localStorage:', error);
+              }
+            }
           }
           
           // Actualizar el texto
           spanElement.text(`${position.habitId}. ${newValue}`);
           spanElement.style('display', null);
-          input.remove();
+          
+          // Remover el input solo si todavía existe
+          if (inputNode.parentNode) {
+            input.remove();
+          }
+          
+          isSaving = false;
         };
         
         input.on('blur', saveEdit);
         input.on('keypress', function(event: any) {
           if (event.key === 'Enter') {
+            event.preventDefault();
             saveEdit();
           }
         });
         input.on('keydown', function(event: any) {
           if (event.key === 'Escape') {
-            spanElement.style('display', null);
-            input.remove();
+            const inputNode = input.node() as HTMLInputElement;
+            if (inputNode && inputNode.parentNode) {
+              spanElement.style('display', null);
+              input.remove();
+            }
           }
         });
       });
@@ -486,8 +543,7 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       
       // Generar segmentos radiales para este hábito, alineados horizontalmente con la celda
       // Un segmento por cada día, siguiendo el ángulo radial de cada etiqueta de día
-      // El ancho del segmento debe ser igual a la altura de la celda del hábito
-      const segmentWidth = cellHeights[i]; // Ancho del segmento = altura de la celda
+      // Todos los segmentos deben tener la misma altura (ancho perpendicular) - usar el valor calculado arriba
       
       // Crear un grupo para los segmentos de este hábito
       const habitSegmentsGroup = svg
@@ -511,14 +567,20 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
         const dayCenterAngle = segmentAngles.get(daySegment.fecha)?.centerAngle;
         if (!dayCenterAngle) return; // Si no hay ángulo, saltar este día
         
-        // Calcular el radio de inicio del segmento basado en la posición original de la etiqueta
-        // Esto mantiene la forma radial original sin distorsión
+        // Calcular el radio de inicio del segmento para que coincida con el final del texto de las etiquetas
+        // El texto tiene padding-left de 8px y está dentro de un div con left: 8px
+        // Necesitamos calcular dónde termina el texto (aproximadamente después del padding y el ancho del texto)
         const labelY = habitLabelPositions[i].y;
-        const segmentStartRadius = Math.sqrt(Math.pow(labelX - centerX, 2) + Math.pow(labelY - centerY, 2)) + 10;
+        // El texto comienza en labelX + 8px (padding) + 8px (left del div) = labelX + 16px
+        // Estimamos que el texto tiene aproximadamente 60-70px de ancho
+        const textEndX = labelX + 16 + 70; // Posición aproximada del final del texto
+        const segmentStartRadius = Math.sqrt(Math.pow(textEndX - centerX, 2) + Math.pow(labelY - centerY, 2));
         
-        // Calcular la posición donde termina el segmento (cerca de la etiqueta del día)
+        // Calcular la posición donde termina el segmento
+        // Dejar un espacio adecuado entre el final del segmento y la etiqueta del día
         const dayLabelRadius = maxRadius + 30;
-        const segmentEndRadius = dayLabelRadius - 20; // Un poco antes de la etiqueta del día
+        // Dejar espacio entre el segmento y la etiqueta del día
+        const segmentEndRadius = dayLabelRadius - 25; // Espacio de 25px antes de la etiqueta del día
         
         // Calcular el ángulo perpendicular para el ancho del segmento
         const perpendicularAngle = dayCenterAngle + Math.PI / 2;
@@ -531,7 +593,10 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
         const endX = centerX + Math.cos(dayCenterAngle) * segmentEndRadius;
         const endY = centerY + Math.sin(dayCenterAngle) * segmentEndRadius;
         
-        // Calcular el offset perpendicular para el ancho del segmento
+        // Calcular el offset perpendicular para el ancho del segmento (altura uniforme)
+        // Asegurar que todos los segmentos tengan exactamente el mismo tamaño
+        // Usar el mismo valor para todos los hábitos y todos los días
+        const segmentWidth = uniformSegmentWidth; // Valor fijo para todos
         const offsetX = Math.cos(perpendicularAngle) * (segmentWidth / 2);
         const offsetY = Math.sin(perpendicularAngle) * (segmentWidth / 2);
         

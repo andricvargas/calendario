@@ -48,14 +48,39 @@ export function useHabitNames(habitCount: number = 8) {
     }
   }, [habitCount]);
 
-  // Guardar nombres en localStorage
-  const updateHabitName = (habitId: number, newName: string) => {
+  // Guardar nombres en localStorage y en el CSV del servidor
+  const updateHabitName = async (habitId: number, newName: string) => {
+    console.log('[useHabitNames] updateHabitName llamado:', { habitId, newName, currentNames: habitNames });
     const updated = [...habitNames];
     updated[habitId - 1] = newName;
+    console.log('[useHabitNames] Nombres actualizados:', updated);
     setHabitNames(updated);
     
     try {
+      // Guardar en localStorage
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      console.log('[useHabitNames] Guardado en localStorage:', STORAGE_KEY, updated);
+      
+      // Guardar en el CSV del servidor
+      try {
+        const response = await fetch('/api/progress/habit-names', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ habitNames: updated }),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error al guardar nombres en el servidor');
+        }
+        
+        console.log('[useHabitNames] Nombres guardados en el CSV del servidor');
+      } catch (serverError: any) {
+        console.error('[useHabitNames] Error al guardar en el servidor:', serverError);
+        // No lanzar el error para que el guardado en localStorage no se vea afectado
+      }
     } catch (error) {
       console.error('Error al guardar nombres de hábitos:', error);
     }

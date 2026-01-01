@@ -11,6 +11,7 @@ export interface RadialChartProps {
   viewDate: Date; // Fecha del mes que se está visualizando
   habitNames?: string[]; // Nombres editables de los hábitos
   habitCount?: number; // Número de hábitos (por defecto 8)
+  onUpdateHabitName?: (habitId: number, newName: string) => Promise<void> | void; // Callback para actualizar nombre de hábito
 }
 
 export interface SegmentData {

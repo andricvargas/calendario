@@ -25,7 +25,7 @@ export function DashboardPage() {
   const { progress, isLoading, toggleHabit, loadProgress } = useProgress();
   const { logout } = useAuth();
   const { habitCount, addHabit, removeHabit, canAdd, canRemove, isLoading: isLoadingHabitCount } = useHabitCount();
-  const { habitNames } = useHabitNames(habitCount);
+  const { habitNames, updateHabitName } = useHabitNames(habitCount);
 
   const handleAddHabit = async () => {
     try {
@@ -162,6 +162,7 @@ export function DashboardPage() {
             currentDate={currentDate}
             viewDate={viewDate}
             habitNames={habitNames}
+            onUpdateHabitName={updateHabitName}
             habitCount={habitCount}
           />
         </div>

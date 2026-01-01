@@ -230,5 +230,28 @@ export class CsvProgressRepository implements ProgressRepository {
       throw error;
     }
   }
+
+  // Método para actualizar los headers del CSV con los nombres personalizados de los hábitos
+  async updateHabitNames(habitNames: string[]): Promise<void> {
+    try {
+      // Cargar todos los datos existentes
+      const allData = await this.getAllProgress();
+      const habitCount = this.habitConfigService.getHabitCount();
+      
+      // Validar que el número de nombres coincida con el número de hábitos
+      if (habitNames.length !== habitCount) {
+        throw new Error(`El número de nombres (${habitNames.length}) no coincide con el número de hábitos (${habitCount})`);
+      }
+      
+      // Reescribir el CSV con los nuevos headers
+      const csvContent = this.csvAdapter.stringify(allData, habitCount, habitNames);
+      await fs.writeFile(this.csvPath, csvContent, 'utf-8');
+      
+      console.log(`[CsvProgressRepository] Headers del CSV actualizados con nombres personalizados`);
+    } catch (error: any) {
+      console.error(`[CsvProgressRepository] Error al actualizar nombres de hábitos:`, error);
+      throw error;
+    }
+  }
 }
 
