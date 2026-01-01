@@ -78,15 +78,6 @@ import progressRoutes from './routes/progressRoutes.js';
 app.use('/api/auth', authRoutes);
 app.use('/api/progress', progressRoutes);
 
-// Middleware de manejo de errores global (debe ir después de las rutas)
-app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-  console.error('[Server] Error no manejado:', err);
-  res.status(500).json({ 
-    error: 'Error interno del servidor',
-    message: process.env.NODE_ENV === 'development' ? err.message : undefined
-  });
-});
-
 // Ruta de prueba para verificar que el servidor está funcionando
 app.get('/api/test', (_req, res) => {
   console.log('[Server] GET /api/test - Servidor respondiendo');
@@ -132,25 +123,39 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-// Servir archivos estáticos en producción (después de las rutas API)
+// Servir archivos estáticos en producción (ANTES del catch-all)
 if (process.env.NODE_ENV === 'production') {
-  // Servir archivos estáticos del frontend
-  app.use(express.static(path.join(__dirname, '../dist')));
+  // Servir archivos estáticos del frontend (JS, CSS, imágenes, etc.)
+  // express.static maneja automáticamente los archivos y devuelve 404 si no existen
+  app.use(express.static(path.join(__dirname, '../dist'), {
+    index: false // No servir index.html automáticamente para rutas raíz
+  }));
   
   // Para cualquier ruta que no sea /api, servir index.html (SPA routing)
+  // express.static ya manejó los archivos estáticos, así que esto solo captura rutas SPA
   app.get('*', (req, res, next) => {
-    // Si es una ruta de API, pasar al siguiente middleware
+    // Si es una ruta de API, devolver 404
     if (req.path.startsWith('/api')) {
-      return next();
+      return res.status(404).json({ error: 'Not found' });
     }
-    // Si es un archivo estático (tiene extensión), intentar servirlo
+    // Si la ruta tiene extensión, express.static ya la manejó (o devolvió 404)
+    // Solo servir index.html para rutas sin extensión (rutas SPA)
     if (req.path.includes('.')) {
-      return next();
+      return next(); // Dejar que express.static maneje el 404
     }
-    // Para cualquier otra ruta, servir index.html
+    // Para cualquier otra ruta, servir index.html (SPA)
     res.sendFile(path.join(__dirname, '../dist/index.html'));
   });
 }
+
+// Middleware de manejo de errores global (debe ir al final)
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('[Server] Error no manejado:', err);
+  res.status(500).json({ 
+    error: 'Error interno del servidor',
+    message: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
+});
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server running on http://0.0.0.0:${PORT}`);
