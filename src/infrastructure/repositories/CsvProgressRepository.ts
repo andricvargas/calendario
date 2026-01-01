@@ -127,10 +127,9 @@ export class CsvProgressRepository implements ProgressRepository {
       }
       console.log(`[CsvProgressRepository] Valores existentes en CSV: [${existingValues.join(', ')}]`);
       
-      // Hacer merge inteligente: combinar los valores del CSV con los del objeto Day
-      // El objeto Day tiene el toggle aplicado, pero el CSV puede tener otros cambios concurrentes
-      // Usar OR lógico para preservar todos los hábitos que están en 1 en cualquiera de los dos
-      // Esto asegura que cada clic se guarde correctamente sin perder cambios anteriores
+      // IMPORTANTE: Usar directamente los valores del objeto Day que tiene el toggle aplicado
+      // El objeto Day ya tiene el estado correcto después del toggle, así que debemos usar esos valores
+      // No hacer merge con OR lógico porque eso impide desmarcar (poner en 0)
       const mergedDayData: ProgressData = {
         fecha: dateString,
       };
@@ -138,16 +137,13 @@ export class CsvProgressRepository implements ProgressRepository {
       
       for (let i = 1; i <= habitCount; i++) {
         const habitKey = `habito_${i}`;
-        const existingValue = existingValues[i - 1] || 0;
+        // Usar directamente el valor del objeto Day (que tiene el toggle aplicado)
         const dayValue = dayHabitValues[i - 1] || 0;
-        // Si el hábito está en 1 en el CSV o en el objeto Day, mantenerlo en 1
-        // Esto preserva todos los cambios concurrentes de múltiples clics
-        const mergedValue = (existingValue === 1 || dayValue === 1) ? 1 : 0;
-        mergedDayData[habitKey] = mergedValue;
-        mergedValues.push(mergedValue);
+        mergedDayData[habitKey] = dayValue;
+        mergedValues.push(dayValue);
       }
       
-      console.log(`[CsvProgressRepository] Valores después del merge (OR lógico): [${mergedValues.join(', ')}]`);
+      console.log(`[CsvProgressRepository] Valores del objeto Day (con toggle aplicado): [${mergedValues.join(', ')}]`);
       allData[existingIndex] = mergedDayData;
       console.log(`[CsvProgressRepository] Día actualizado con merge de valores`);
       console.log(`[CsvProgressRepository] Registro completado para: ${dayOfWeek}, ${dayNumber} de ${monthName} de ${day.date.getFullYear()}`);

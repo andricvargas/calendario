@@ -125,10 +125,7 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
     // Almacenar los ángulos calculados para cada segmento para reutilizarlos en las etiquetas
     const segmentAngles = new Map<string, { startAngle: number; endAngle: number; centerAngle: number }>();
     
-    // Grupo para las etiquetas de días (fuera del gráfico)
-    const dayLabelGroup = svg.append('g').attr('class', 'day-labels');
-    
-    // Almacenar las posiciones de las etiquetas para detectar superposiciones
+    // Almacenar las posiciones de las etiquetas para detectar superposiciones (coordenadas absolutas)
     const labelPositions: Array<{ day: number; x: number; y: number; angle: number }> = [];
 
     // Para cada día (sección radial)
@@ -150,13 +147,15 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       const daysBeforeToday = todayDay - dayNumber;
       
       // Calcular los ángulos de inicio y fin del segmento
-      // Para ir hacia la DERECHA (sentido horario), RESTAMOS ángulos desde todayStartAngle (-π/2)
-      // Día actual (daysBeforeToday = 0): COMIENZA en todayStartAngle (-π/2, 00:00, arriba)
-      // Día anterior (daysBeforeToday = 1): COMIENZA en todayStartAngle - anglePerDay (más a la derecha)
-      // Día 1 (daysBeforeToday = 30): COMIENZA en todayStartAngle - 30*anglePerDay (muy a la derecha)
+      // IMPORTANTE: Los segmentos deben alinearse con las etiquetas que usan SUMAR el offset
+      // Las etiquetas usan: dayCenterAngle = todayStartAngle + dayOffset + (anglePerDay / 2)
+      // Para que el centro del segmento coincida con la etiqueta:
+      // dayStartAngle = todayStartAngle + dayOffset
+      // dayEndAngle = todayStartAngle + dayOffset + anglePerDay
+      // Así el centro será: (dayStartAngle + dayEndAngle) / 2 = todayStartAngle + dayOffset + (anglePerDay / 2)
       const dayOffset = daysBeforeToday * anglePerDay;
-      const dayStartAngle = todayStartAngle - dayOffset;
-      const dayEndAngle = todayStartAngle - dayOffset - anglePerDay;
+      const dayStartAngle = todayStartAngle + dayOffset;
+      const dayEndAngle = todayStartAngle + dayOffset + anglePerDay;
       
       // Usar los ángulos directamente - D3 maneja correctamente los ángulos negativos
       // El problema es que cuando el día 1 tiene un ángulo de -351°, está casi en la misma posición que el día 31 (-90°)
@@ -175,8 +174,8 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       }
       
       // Calcular el ángulo central del día (para las etiquetas)
-      // IMPORTANTE: Las etiquetas usan el cálculo ANTERIOR (sumando) para mantener su posición
-      // mientras los segmentos usan el nuevo cálculo (restando)
+      // IMPORTANTE: Las etiquetas mantienen su posición original (desde las 00:00)
+      // Las etiquetas usan SUMAR el offset para mantener su posición correcta
       const dayCenterAngle = todayStartAngle + dayOffset + (anglePerDay / 2);
       
       // Almacenar los ángulos para este segmento
@@ -304,13 +303,23 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
         }
       }
       
-      // Crear la etiqueta del día inmediatamente después de renderizar el segmento
-      // Usar el ángulo central calculado directamente (dayCenterAngle) en lugar de centroid()
-      // Esto garantiza que la etiqueta esté perfectamente alineada con el centro del segmento
-      // El centroid() de D3 puede no coincidir exactamente con el centro visual cuando startAngle > endAngle
-      const centroidAngle = dayCenterAngle;
+      // Crear la etiqueta del día asociada al mismo segmento
+      // ESTRATEGIA: Usar el arco de D3 para calcular el centroide real del segmento
+      // Esto asegura que la etiqueta esté perfectamente alineada con el centro visual del segmento
+      const arcGenerator = d3.arc()
+        .innerRadius(startRadius)
+        .outerRadius(maxRadius)
+        .startAngle(finalStartAngle)
+        .endAngle(finalEndAngle);
       
-      // Calcular la posición base de la etiqueta
+      // Calcular el centroide del segmento (coordenadas relativas al centro)
+      const [centroidX, centroidY] = arcGenerator.centroid();
+      
+      // Calcular el ángulo del centroide para posicionar la etiqueta
+      const centroidAngle = Math.atan2(centroidY, centroidX);
+      
+      // Calcular la posición base de la etiqueta (coordenadas absolutas en el SVG)
+      // Usar el mismo radio que el segmento más un offset para estar fuera
       let labelRadius = maxRadius + 30; // Fuera del gráfico
       let x = centerX + Math.cos(centroidAngle) * labelRadius;
       let y = centerY + Math.sin(centroidAngle) * labelRadius;
@@ -334,8 +343,16 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       
       const isToday = segment.isToday;
       
+      // Crear un grupo de etiqueta asociado al day-section mediante atributos
+      // Las etiquetas se crean en el SVG principal con coordenadas absolutas
+      const labelGroup = svg
+        .append('g')
+        .attr('class', 'day-label-group')
+        .attr('data-day', segment.day)
+        .attr('data-fecha', segment.fecha);
+      
       // Crear un círculo de fondo para el número
-      const labelBg = dayLabelGroup
+      const labelBg = labelGroup
         .append('circle')
         .attr('cx', x)
         .attr('cy', y)
@@ -344,13 +361,15 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
         .attr('stroke', isToday ? '#2196f3' : 'transparent')
         .attr('stroke-width', 1);
       
-      dayLabelGroup
+      labelGroup
         .append('text')
         .attr('class', 'day-label')
         .attr('x', x)
         .attr('y', y)
         .attr('text-anchor', 'middle')
         .attr('dy', '0.35em')
+        .attr('data-day', segment.day)
+        .attr('data-fecha', segment.fecha)
         .text(segment.day)
         .style('font-size', '11px')
         .style('font-weight', isToday ? 'bold' : 'normal')
