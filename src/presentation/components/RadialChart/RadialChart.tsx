@@ -89,8 +89,10 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
     // Verificar que el día actual esté en los segmentos
     const todaySegment = segments.find(s => s.day === todayDay);
     
-    const daysBeforeToday = todayDay - 1; // Días anteriores al día actual
-    const daysAfterToday = numDays - todayDay; // Días futuros después del día actual
+    // Para meses actuales: calcular días antes/después del día actual
+    // Para meses pasados: estos valores no son relevantes (todos los días son pasados)
+    const daysBeforeToday = isCurrentMonth ? todayDay - 1 : 0; // Días anteriores al día actual
+    const daysAfterToday = isCurrentMonth ? numDays - todayDay : 0; // Días futuros después del día actual
     
     // Solo mostrar desde las 12 (00:00) hasta las 9 PM (21:00) = 270 grados (3/4 del círculo)
     // El día ACTUAL está en las 00:00 (arriba, -π/2), y los días anteriores van hacia la derecha (sentido horario)
@@ -102,12 +104,13 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
     
     // Calcular el ángulo por día basado en el número real de días a mostrar
     // Distribuir el espacio disponible entre todos los días que se mostrarán
-    // IMPORTANTE: Validar que todayDay no sea 0 para evitar división por cero
-    if (todayDay <= 0) {
-      console.error(`[RadialChart] ERROR: todayDay debe ser mayor que 0, valor actual: ${todayDay}`);
+    // IMPORTANTE: Usar numDays (número total de segmentos) en lugar de todayDay
+    // para meses pasados, ya que todayDay puede ser diferente
+    if (numDays <= 0) {
+      console.error(`[RadialChart] ERROR: numDays debe ser mayor que 0, valor actual: ${numDays}`);
       return;
     }
-    const anglePerDay = totalAngle / todayDay; // Ángulo por día (ajustado al número de días)
+    const anglePerDay = totalAngle / numDays; // Ángulo por día (ajustado al número total de días)
     
     // Validar que anglePerDay sea un número válido
     if (!isFinite(anglePerDay) || isNaN(anglePerDay)) {
@@ -142,44 +145,47 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       // Los días anteriores van hacia la derecha (sentido horario, restando ángulos)
       const dayNumber = segment.day;
       
-      // Calcular cuántos días antes del día actual está este día
-      // Si todayDay = 31, dayNumber = 31 → daysBeforeToday = 0 (día actual en 00:00)
-      // Si todayDay = 31, dayNumber = 30 → daysBeforeToday = 1 (primer día a la derecha)
-      // Si todayDay = 31, dayNumber = 1 → daysBeforeToday = 30 (último día a la derecha)
-      const daysBeforeToday = todayDay - dayNumber;
-      
-      // Calcular los ángulos de inicio y fin del segmento
-      // IMPORTANTE: El día actual debe INICIAR en las 00:00 (todayStartAngle = -π/2, arriba)
-      // Para el día actual (daysBeforeToday = 0): inicia en todayStartAngle (-π/2, 00:00)
-      // Para días anteriores: se desplazan hacia la derecha (sentido horario) sumando el offset
-      const dayOffset = daysBeforeToday * anglePerDay;
-      
+      // Calcular los ángulos basándose en si es el mes actual o un mes pasado
       let dayStartAngle: number;
       let dayEndAngle: number;
+      let dayCenterAngle: number;
       
-      if (daysBeforeToday === 0) {
-        // Día actual: inicia en todayStartAngle (-π/2, 00:00, arriba)
-        dayStartAngle = todayStartAngle;
-        dayEndAngle = todayStartAngle + anglePerDay;
+      if (isCurrentMonth) {
+        // MES ACTUAL: El día actual está en las 00:00 (arriba)
+        // Calcular cuántos días antes del día actual está este día
+        const daysBeforeToday = todayDay - dayNumber;
+        const dayOffset = daysBeforeToday * anglePerDay;
+        
+        if (daysBeforeToday === 0) {
+          // Día actual: inicia en todayStartAngle (-π/2, 00:00, arriba)
+          dayStartAngle = todayStartAngle;
+          dayEndAngle = todayStartAngle + anglePerDay;
+          dayCenterAngle = todayStartAngle; // Etiqueta al inicio del segmento
+        } else {
+          // Días anteriores: desplazados hacia la derecha (sentido horario)
+          dayStartAngle = todayStartAngle + dayOffset;
+          dayEndAngle = todayStartAngle + dayOffset + anglePerDay;
+          dayCenterAngle = todayStartAngle + dayOffset + (anglePerDay / 2); // Centro del segmento
+        }
       } else {
-        // Días anteriores: desplazados hacia la derecha (sentido horario)
-        dayStartAngle = todayStartAngle + dayOffset;
-        dayEndAngle = todayStartAngle + dayOffset + anglePerDay;
+        // MES PASADO: Distribuir todos los días uniformemente, con el día 1 en la parte superior
+        // El día 1 está en -π/2 (arriba), y los días siguientes van en sentido horario
+        const dayIndex = dayNumber - 1; // Índice 0-based (día 1 → índice 0, día 2 → índice 1, etc.)
+        dayStartAngle = todayStartAngle + (dayIndex * anglePerDay);
+        dayEndAngle = todayStartAngle + (dayIndex * anglePerDay) + anglePerDay;
+        dayCenterAngle = todayStartAngle + (dayIndex * anglePerDay) + (anglePerDay / 2);
       }
-      
-      // Calcular el ángulo central del día (para las etiquetas)
-      // IMPORTANTE: El día actual INICIA en las 00:00 (todayStartAngle)
-      // Para el día actual: la etiqueta debe estar al inicio del segmento (todayStartAngle)
-      // Para días anteriores: en el centro del segmento
       
       // Validar que los ángulos sean números válidos
       if (!isFinite(dayStartAngle) || !isFinite(dayEndAngle) || isNaN(dayStartAngle) || isNaN(dayEndAngle)) {
         console.error(`[RadialChart] ERROR: Ángulos inválidos para día ${dayNumber}: dayStartAngle=${dayStartAngle}, dayEndAngle=${dayEndAngle}`);
         return; // Saltar este día si hay error
       }
-      const dayCenterAngle = daysBeforeToday === 0 
-        ? todayStartAngle  // Día actual: inicia en las 00:00
-        : todayStartAngle + dayOffset + (anglePerDay / 2);  // Días anteriores: centro del segmento
+      
+      if (!isFinite(dayCenterAngle) || isNaN(dayCenterAngle)) {
+        console.error(`[RadialChart] ERROR: dayCenterAngle inválido para día ${dayNumber}: ${dayCenterAngle}`);
+        return; // Saltar este día si hay error
+      }
       
       // Validar que dayCenterAngle sea válido
       if (!isFinite(dayCenterAngle) || isNaN(dayCenterAngle)) {
@@ -194,8 +200,11 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       const finalStartAngle = dayStartAngle;
       const finalEndAngle = dayEndAngle;
       
+      // Calcular daysBeforeToday para el log (solo para meses actuales)
+      const daysBeforeToday = isCurrentMonth ? todayDay - dayNumber : -1;
+      
       // Log de posiciones (ángulos y coordenadas)
-      if (segment.day === 31 || segment.day === 1 || daysBeforeToday === 0) {
+      if (segment.day === 31 || segment.day === 1 || (isCurrentMonth && daysBeforeToday === 0)) {
         const labelRadius = maxRadius + 30;
         const labelX = centerX + Math.cos(dayCenterAngle) * labelRadius;
         const labelY = centerY + Math.sin(dayCenterAngle) * labelRadius;
@@ -242,15 +251,18 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       labelPositions.push({ day: dayNumber, x, y, angle: centroidAngle });
       
       // Crear una línea de referencia desde el label hasta el centro para visualizar la alineación
+      // Para meses actuales: azul para el día actual, gris para los demás
+      // Para meses pasados: todos grises
+      const isCurrentDayInCurrentMonth = isCurrentMonth && daysBeforeToday === 0;
       const referenceLine = svg
         .append('line')
         .attr('x1', x)
         .attr('y1', y)
         .attr('x2', centerX)
         .attr('y2', centerY)
-        .attr('stroke', daysBeforeToday === 0 ? '#2196f3' : '#cccccc') // Azul para el día actual, gris para los demás
-        .attr('stroke-width', daysBeforeToday === 0 ? 2 : 1)
-        .attr('stroke-dasharray', daysBeforeToday === 0 ? '5,5' : '3,3')
+        .attr('stroke', isCurrentDayInCurrentMonth ? '#2196f3' : '#cccccc') // Azul para el día actual (solo en mes actual), gris para los demás
+        .attr('stroke-width', isCurrentDayInCurrentMonth ? 2 : 1)
+        .attr('stroke-dasharray', isCurrentDayInCurrentMonth ? '5,5' : '3,3')
         .attr('opacity', 0.5)
         .attr('class', `label-reference-line day-${dayNumber}`)
         .attr('data-day', dayNumber);
@@ -689,14 +701,32 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       // Verificar que encontramos el segmento y que el índice coincide con el día
       if (selectedDayIndex >= 0 && selectedDayIndex < segments.length && selectedSegment) {
         // Calcular el ángulo igual que en el renderizado
-        // El día actual está en las 00:00, y los días anteriores van hacia la derecha (restando ángulos)
         const selectedDayNumber = selectedSegment.day;
-        const daysBeforeToday = todayDay - selectedDayNumber;
-        const dayOffset = daysBeforeToday * anglePerDay;
+        let dayStartAngle: number;
+        let dayEndAngle: number;
         
-        // Calcular los ángulos de inicio y fin del arco
-        selectedStartAngle = todayStartAngle - dayOffset;
-        selectedEndAngle = todayStartAngle - dayOffset - anglePerDay;
+        if (isCurrentMonth) {
+          // MES ACTUAL: El día actual está en las 00:00, y los días anteriores van hacia la derecha
+          const daysBeforeToday = todayDay - selectedDayNumber;
+          const dayOffset = daysBeforeToday * anglePerDay;
+          
+          if (daysBeforeToday === 0) {
+            dayStartAngle = todayStartAngle;
+            dayEndAngle = todayStartAngle + anglePerDay;
+          } else {
+            dayStartAngle = todayStartAngle + dayOffset;
+            dayEndAngle = todayStartAngle + dayOffset + anglePerDay;
+          }
+        } else {
+          // MES PASADO: Distribuir todos los días uniformemente, con el día 1 en la parte superior
+          const dayIndex = selectedDayNumber - 1; // Índice 0-based
+          dayStartAngle = todayStartAngle + (dayIndex * anglePerDay);
+          dayEndAngle = todayStartAngle + (dayIndex * anglePerDay) + anglePerDay;
+        }
+        
+        // Usar los ángulos calculados
+        selectedStartAngle = dayStartAngle;
+        selectedEndAngle = dayEndAngle;
         
         // Crear un grupo para el borde resaltado
         const highlightGroup = svg
