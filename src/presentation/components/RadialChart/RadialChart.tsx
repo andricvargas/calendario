@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 import { RadialChartProps, SegmentData } from './RadialChart.types';
-import { calculateSegments, getHabitColor, createArc } from './RadialChart.utils';
+import { calculateSegments, getHabitColor } from './RadialChart.utils';
 import './RadialChart.css';
 
 export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, habitNames = [], habitCount = 8, onUpdateHabitName }: RadialChartProps) {
@@ -11,15 +11,16 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
   useEffect(() => {
     if (!svgRef.current || !containerRef.current) return;
 
-    try {
-      const svg = d3.select(svgRef.current);
-      svg.selectAll('*').remove();
-
+    const svg = d3.select(svgRef.current);
     const width = 800;
     const height = 800;
     const centerX = width / 2;
     const centerY = height / 2;
-    const maxRadius = Math.min(width, height) / 2 - 50;
+
+    try {
+      svg.selectAll('*').remove();
+
+      const maxRadius = Math.min(width, height) / 2 - 50;
 
     // Encontrar el día actual para posicionarlo en las 00:00 (arriba)
     const today = new Date();
@@ -86,13 +87,8 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       return;
     }
     
-    // Verificar que el día actual esté en los segmentos
-    const todaySegment = segments.find(s => s.day === todayDay);
-    
     // Para meses actuales: calcular días antes/después del día actual
     // Para meses pasados: estos valores no son relevantes (todos los días son pasados)
-    const daysBeforeToday = isCurrentMonth ? todayDay - 1 : 0; // Días anteriores al día actual
-    const daysAfterToday = isCurrentMonth ? numDays - todayDay : 0; // Días futuros después del día actual
     
     // Solo mostrar desde las 12 (00:00) hasta las 9 PM (21:00) = 270 grados (3/4 del círculo)
     // El día ACTUAL está en las 00:00 (arriba, -π/2), y los días anteriores van hacia la derecha (sentido horario)
@@ -134,11 +130,7 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
     const labelPositions: Array<{ day: number; x: number; y: number; angle: number }> = [];
 
     // Para cada día (sección radial)
-    dayGroups.each(function (segment: SegmentData, index: number) {
-      const dayGroup = d3.select(this);
-      // Usar el índice del callback en lugar de findIndex para mayor precisión
-      const dayIndex = index;
-      
+    dayGroups.each(function (this: SVGGElement, segment: SegmentData, _index: number) {
       // Calcular el ángulo de esta sección de día
       // IMPORTANTE: Los segmentos están invertidos, así que el día 31 (último) está primero en el array
       // El día actual (todayDay) debe estar en las 00:00 (arriba, -π/2)
@@ -196,10 +188,6 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       // Usar los ángulos directamente - D3 maneja correctamente los ángulos negativos
       // El problema es que cuando el día 1 tiene un ángulo de -351°, está casi en la misma posición que el día 31 (-90°)
       // Para evitar esto, necesitamos asegurarnos de que el orden de renderizado sea correcto
-      // (día 31 primero, luego día 30, ..., día 1 último) para que el día 31 esté "encima" y capture los eventos
-      const finalStartAngle = dayStartAngle;
-      const finalEndAngle = dayEndAngle;
-      
       // Calcular daysBeforeToday para el log (solo para meses actuales)
       const daysBeforeToday = isCurrentMonth ? todayDay - dayNumber : -1;
       
@@ -254,7 +242,7 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
       // Para meses actuales: azul para el día actual, gris para los demás
       // Para meses pasados: todos grises
       const isCurrentDayInCurrentMonth = isCurrentMonth && daysBeforeToday === 0;
-      const referenceLine = svg
+      svg
         .append('line')
         .attr('x1', x)
         .attr('y1', y)
@@ -278,7 +266,7 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
         .attr('data-fecha', segment.fecha);
       
       // Crear un círculo de fondo para el número
-      const labelBg = labelGroup
+      labelGroup
         .append('circle')
         .attr('cx', x)
         .attr('cy', y)
@@ -426,7 +414,7 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
         .style('pointer-events', 'auto');
       
       // Texto del hábito dentro del div de contenido
-      const textElement = cellContent
+      cellContent
         .append('xhtml:span')
         .style('font-size', '11px')
         .style('font-weight', '500')
@@ -461,8 +449,9 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
         spanElement.style('display', 'none');
         
         // Enfocar el input
-        input.node()?.focus();
-        input.node()?.select();
+        const inputEl = input.node() as HTMLInputElement | null;
+        inputEl?.focus();
+        inputEl?.select();
         
         // Guardar al presionar Enter o perder el foco
         let isSaving = false; // Flag para evitar múltiples llamadas
@@ -639,7 +628,7 @@ export function RadialChart({ progress, onHabitToggle, currentDate, viewDate, ha
           const currentSegmentFecha = daySegment.fecha;
           const currentHabitIndex = i + 1;
           
-          const handleHabitToggle = async function(event: any) {
+          const handleHabitToggle = async function(this: SVGPathElement, event: MouseEvent) {
             event.stopPropagation();
             event.preventDefault();
             
